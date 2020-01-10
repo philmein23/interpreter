@@ -2,7 +2,8 @@ mod lexer;
 mod token;
 
 fn main() {
-    let chars = String::from("hello there").chars().collect::<Vec<char>>();
+    let chars = String::from("hello");
+    let slice = &chars[0..2];
 
-    println!("{:?}", chars);
+    println!("{:?}", slice);
 }

@@ -18,12 +18,12 @@ impl Lexer {
             ch: '\u{0}',
         };
 
-        lexer.readChar();
+        lexer.read_char();
 
         lexer
     }
 
-    pub fn readChar(&mut self) {
+    pub fn read_char(&mut self) {
         let chars = self.input.chars().collect::<Vec<char>>();
         self.ch = *chars.get(self.read_position).unwrap_or_else(|| &'\u{0}');
 
@@ -31,10 +31,15 @@ impl Lexer {
         self.read_position += 1;
     }
 
+    pub fn peek_char(&self) -> char {
+        let chars = self.input.chars().collect::<Vec<char>>();
+        *chars.get(self.read_position).unwrap_or_else(|| &'\u{0}')
+    }
+
     pub fn read_identifier(&mut self) -> &str {
         let position = self.position;
         while is_letter(self.ch) {
-            self.readChar();
+            self.read_char();
         }
 
         &self.input[position..self.position]
@@ -43,7 +48,7 @@ impl Lexer {
     pub fn read_number(&mut self) -> &str {
         let position = self.position;
         while is_digit(self.ch) {
-            self.readChar();
+            self.read_char();
         }
 
         &self.input[position..self.position]
@@ -51,17 +56,29 @@ impl Lexer {
 
     pub fn skip_whitespace(&mut self) {
         while self.ch == ' ' || self.ch == '\n' || self.ch == '\t' || self.ch == '\r' {
-            self.readChar();
+            self.read_char();
         }
     }
 
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         let token = match self.ch {
-            '=' => Token {
-                token_type: TokenType::ASSIGN,
-                literal: self.ch.to_string(),
-            },
+            '=' => {
+                if self.peek_char() == '=' {
+                    let ch = self.ch;
+                    self.read_char();
+                    let literal = format!("{}{}", ch.to_string(), (self.ch).to_string());
+                    Token {
+                        token_type: TokenType::EQ,
+                        literal,
+                    }
+                } else {
+                    Token {
+                        token_type: TokenType::ASSIGN,
+                        literal: self.ch.to_string(),
+                    }
+                }
+            }
             '+' => Token {
                 token_type: TokenType::PLUS,
                 literal: self.ch.to_string(),
@@ -90,6 +107,42 @@ impl Lexer {
                 token_type: TokenType::RBRACE,
                 literal: self.ch.to_string(),
             },
+            '-' => Token {
+                token_type: TokenType::MINUS,
+                literal: self.ch.to_string(),
+            },
+            '!' => {
+                if self.peek_char() == '=' {
+                    let ch = self.ch;
+                    self.read_char();
+                    let literal = format!("{}{}", ch.to_string(), (self.ch).to_string());
+                    Token {
+                        token_type: TokenType::NOT_EQ,
+                        literal,
+                    }
+                } else {
+                    Token {
+                        token_type: TokenType::BANG,
+                        literal: self.ch.to_string(),
+                    }
+                }
+            }
+            '*' => Token {
+                token_type: TokenType::ASTERISK,
+                literal: self.ch.to_string(),
+            },
+            '/' => Token {
+                token_type: TokenType::SLASH,
+                literal: self.ch.to_string(),
+            },
+            '>' => Token {
+                token_type: TokenType::GT,
+                literal: self.ch.to_string(),
+            },
+            '<' => Token {
+                token_type: TokenType::LT,
+                literal: self.ch.to_string(),
+            },
             _ => {
                 if is_letter(self.ch) {
                     let literal = self.read_identifier();
@@ -112,8 +165,7 @@ impl Lexer {
             }
         };
 
-        self.readChar();
-
+        self.read_char();
         token
     }
 }
@@ -162,7 +214,17 @@ mod tests {
             x + y;
         };
         
-        let result = add(five, ten);",
+        let result = add(five, ten);
+        !-/*5;
+        5 < 10 > 5;
+        
+        if (5 < 10) {
+            return true;
+        } else {
+            return false;
+        }
+        10 == 10;
+        10 != 9;",
         );
 
         let expected = vec![
@@ -201,6 +263,43 @@ mod tests {
             TokenType::COMMA,
             TokenType::IDENT,
             TokenType::RPAREN,
+            TokenType::SEMICOLON,
+            TokenType::BANG,
+            TokenType::MINUS,
+            TokenType::SLASH,
+            TokenType::ASTERISK,
+            TokenType::INT,
+            TokenType::SEMICOLON,
+            TokenType::INT,
+            TokenType::LT,
+            TokenType::INT,
+            TokenType::GT,
+            TokenType::INT,
+            TokenType::SEMICOLON,
+            TokenType::IF,
+            TokenType::LPAREN,
+            TokenType::INT,
+            TokenType::LT,
+            TokenType::INT,
+            TokenType::RPAREN,
+            TokenType::LBRACE,
+            TokenType::RETURN,
+            TokenType::TRUE,
+            TokenType::SEMICOLON,
+            TokenType::RBRACE,
+            TokenType::ELSE,
+            TokenType::LBRACE,
+            TokenType::RETURN,
+            TokenType::FALSE,
+            TokenType::SEMICOLON,
+            TokenType::RBRACE,
+            TokenType::INT,
+            TokenType::EQ,
+            TokenType::INT,
+            TokenType::SEMICOLON,
+            TokenType::INT,
+            TokenType::NOT_EQ,
+            TokenType::INT,
             TokenType::SEMICOLON,
             TokenType::EOF,
         ];
