@@ -1,9 +1,9 @@
 mod lexer;
+mod repl;
 mod token;
 
-fn main() {
-    let chars = String::from("hello");
-    let slice = &chars[0..2];
+use repl::start;
 
-    println!("{:?}", slice);
+fn main() {
+    start();
 }
