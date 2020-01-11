@@ -1,5 +1,5 @@
 #[derive(Clone, Debug, PartialEq)]
-pub enum TokenType {
+pub enum Token {
     ILLEGAL,
     EOF,
     IDENT,
@@ -29,21 +29,21 @@ pub enum TokenType {
     NOT_EQ,
 }
 
-#[derive(Debug)]
-pub struct Token {
-    pub token_type: TokenType,
-    pub literal: String,
-}
+// #[derive(Debug)]
+// pub struct Token {
+//     pub token_type: TokenType,
+//     pub literal: String,
+// }
 
-pub fn lookup_identifier(identifier: &str) -> Option<TokenType> {
+pub fn lookup_identifier(identifier: &str) -> Option<Token> {
     match identifier {
-        "fn" => Some(TokenType::FUNCTION),
-        "let" => Some(TokenType::LET),
-        "if" => Some(TokenType::IF),
-        "else" => Some(TokenType::ELSE),
-        "return" => Some(TokenType::RETURN),
-        "true" => Some(TokenType::TRUE),
-        "false" => Some(TokenType::FALSE),
+        "fn" => Some(Token::FUNCTION),
+        "let" => Some(Token::LET),
+        "if" => Some(Token::IF),
+        "else" => Some(Token::ELSE),
+        "return" => Some(Token::RETURN),
+        "true" => Some(Token::TRUE),
+        "false" => Some(Token::FALSE),
         _ => None,
     }
 }

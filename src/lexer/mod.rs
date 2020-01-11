@@ -1,4 +1,4 @@
-use crate::token::{lookup_identifier, Token, TokenType};
+use crate::token::{lookup_identifier, Token};
 use std::char;
 
 #[derive(Debug)]
@@ -65,102 +65,51 @@ impl Lexer {
         let token = match self.ch {
             '=' => {
                 if self.peek_char() == '=' {
-                    let ch = self.ch;
                     self.read_char();
-                    let literal = format!("{}{}", ch.to_string(), (self.ch).to_string());
-                    Token {
-                        token_type: TokenType::EQ,
-                        literal,
-                    }
+                    Token::EQ
                 } else {
-                    Token {
-                        token_type: TokenType::ASSIGN,
-                        literal: self.ch.to_string(),
-                    }
+                    Token::ASSIGN
                 }
             }
-            '+' => Token {
-                token_type: TokenType::PLUS,
-                literal: self.ch.to_string(),
-            },
-            ',' => Token {
-                token_type: TokenType::COMMA,
-                literal: self.ch.to_string(),
-            },
-            ';' => Token {
-                token_type: TokenType::SEMICOLON,
-                literal: self.ch.to_string(),
-            },
-            '(' => Token {
-                token_type: TokenType::LPAREN,
-                literal: self.ch.to_string(),
-            },
-            ')' => Token {
-                token_type: TokenType::RPAREN,
-                literal: self.ch.to_string(),
-            },
-            '{' => Token {
-                token_type: TokenType::LBRACE,
-                literal: self.ch.to_string(),
-            },
-            '}' => Token {
-                token_type: TokenType::RBRACE,
-                literal: self.ch.to_string(),
-            },
-            '-' => Token {
-                token_type: TokenType::MINUS,
-                literal: self.ch.to_string(),
-            },
+            '+' => Token::PLUS,
+
+            ',' => Token::COMMA,
+
+            ';' => Token::SEMICOLON,
+
+            '(' => Token::LPAREN,
+
+            ')' => Token::RPAREN,
+
+            '{' => Token::LBRACE,
+
+            '}' => Token::RBRACE,
+
+            '-' => Token::MINUS,
             '!' => {
                 if self.peek_char() == '=' {
-                    let ch = self.ch;
                     self.read_char();
-                    let literal = format!("{}{}", ch.to_string(), (self.ch).to_string());
-                    Token {
-                        token_type: TokenType::NOT_EQ,
-                        literal,
-                    }
+                    Token::NOT_EQ
                 } else {
-                    Token {
-                        token_type: TokenType::BANG,
-                        literal: self.ch.to_string(),
-                    }
+                    Token::BANG
                 }
             }
-            '*' => Token {
-                token_type: TokenType::ASTERISK,
-                literal: self.ch.to_string(),
-            },
-            '/' => Token {
-                token_type: TokenType::SLASH,
-                literal: self.ch.to_string(),
-            },
-            '>' => Token {
-                token_type: TokenType::GT,
-                literal: self.ch.to_string(),
-            },
-            '<' => Token {
-                token_type: TokenType::LT,
-                literal: self.ch.to_string(),
-            },
+            '*' => Token::ASTERISK,
+
+            '/' => Token::SLASH,
+
+            '>' => Token::GT,
+
+            '<' => Token::LT,
             _ => {
                 if is_letter(self.ch) {
                     let literal = self.read_identifier();
-                    return Token {
-                        literal: literal.to_string(),
-                        token_type: lookup_identifier(literal).unwrap_or_else(|| TokenType::IDENT),
-                    };
+                    return lookup_identifier(literal).unwrap_or_else(|| Token::IDENT);
                 } else if is_digit(self.ch) {
                     let literal = self.read_number();
-                    return Token {
-                        literal: literal.to_string(),
-                        token_type: TokenType::INT,
-                    };
+                    return Token::INT;
                 } else {
-                    return Token {
-                        token_type: TokenType::EOF,
-                        literal: self.ch.to_string(),
-                    };
+                    return Token::EOF;
                 };
             }
         };
@@ -186,21 +135,21 @@ mod tests {
     fn test_next_token() {
         let input = String::from("=+(){},;");
         let expected = vec![
-            TokenType::ASSIGN,
-            TokenType::PLUS,
-            TokenType::LPAREN,
-            TokenType::RPAREN,
-            TokenType::LBRACE,
-            TokenType::RBRACE,
-            TokenType::COMMA,
-            TokenType::SEMICOLON,
+            Token::ASSIGN,
+            Token::PLUS,
+            Token::LPAREN,
+            Token::RPAREN,
+            Token::LBRACE,
+            Token::RBRACE,
+            Token::COMMA,
+            Token::SEMICOLON,
         ];
 
         let mut lexer = Lexer::new(input);
 
         for token in expected.iter() {
             let tok = lexer.next_token();
-            assert_eq!(&tok.token_type, token);
+            assert_eq!(&tok, token);
         }
     }
 
@@ -228,87 +177,87 @@ mod tests {
         );
 
         let expected = vec![
-            TokenType::LET,
-            TokenType::IDENT,
-            TokenType::ASSIGN,
-            TokenType::INT,
-            TokenType::SEMICOLON,
-            TokenType::LET,
-            TokenType::IDENT,
-            TokenType::ASSIGN,
-            TokenType::INT,
-            TokenType::SEMICOLON,
-            TokenType::LET,
-            TokenType::IDENT,
-            TokenType::ASSIGN,
-            TokenType::FUNCTION,
-            TokenType::LPAREN,
-            TokenType::IDENT,
-            TokenType::COMMA,
-            TokenType::IDENT,
-            TokenType::RPAREN,
-            TokenType::LBRACE,
-            TokenType::IDENT,
-            TokenType::PLUS,
-            TokenType::IDENT,
-            TokenType::SEMICOLON,
-            TokenType::RBRACE,
-            TokenType::SEMICOLON,
-            TokenType::LET,
-            TokenType::IDENT,
-            TokenType::ASSIGN,
-            TokenType::IDENT,
-            TokenType::LPAREN,
-            TokenType::IDENT,
-            TokenType::COMMA,
-            TokenType::IDENT,
-            TokenType::RPAREN,
-            TokenType::SEMICOLON,
-            TokenType::BANG,
-            TokenType::MINUS,
-            TokenType::SLASH,
-            TokenType::ASTERISK,
-            TokenType::INT,
-            TokenType::SEMICOLON,
-            TokenType::INT,
-            TokenType::LT,
-            TokenType::INT,
-            TokenType::GT,
-            TokenType::INT,
-            TokenType::SEMICOLON,
-            TokenType::IF,
-            TokenType::LPAREN,
-            TokenType::INT,
-            TokenType::LT,
-            TokenType::INT,
-            TokenType::RPAREN,
-            TokenType::LBRACE,
-            TokenType::RETURN,
-            TokenType::TRUE,
-            TokenType::SEMICOLON,
-            TokenType::RBRACE,
-            TokenType::ELSE,
-            TokenType::LBRACE,
-            TokenType::RETURN,
-            TokenType::FALSE,
-            TokenType::SEMICOLON,
-            TokenType::RBRACE,
-            TokenType::INT,
-            TokenType::EQ,
-            TokenType::INT,
-            TokenType::SEMICOLON,
-            TokenType::INT,
-            TokenType::NOT_EQ,
-            TokenType::INT,
-            TokenType::SEMICOLON,
-            TokenType::EOF,
+            Token::LET,
+            Token::IDENT,
+            Token::ASSIGN,
+            Token::INT,
+            Token::SEMICOLON,
+            Token::LET,
+            Token::IDENT,
+            Token::ASSIGN,
+            Token::INT,
+            Token::SEMICOLON,
+            Token::LET,
+            Token::IDENT,
+            Token::ASSIGN,
+            Token::FUNCTION,
+            Token::LPAREN,
+            Token::IDENT,
+            Token::COMMA,
+            Token::IDENT,
+            Token::RPAREN,
+            Token::LBRACE,
+            Token::IDENT,
+            Token::PLUS,
+            Token::IDENT,
+            Token::SEMICOLON,
+            Token::RBRACE,
+            Token::SEMICOLON,
+            Token::LET,
+            Token::IDENT,
+            Token::ASSIGN,
+            Token::IDENT,
+            Token::LPAREN,
+            Token::IDENT,
+            Token::COMMA,
+            Token::IDENT,
+            Token::RPAREN,
+            Token::SEMICOLON,
+            Token::BANG,
+            Token::MINUS,
+            Token::SLASH,
+            Token::ASTERISK,
+            Token::INT,
+            Token::SEMICOLON,
+            Token::INT,
+            Token::LT,
+            Token::INT,
+            Token::GT,
+            Token::INT,
+            Token::SEMICOLON,
+            Token::IF,
+            Token::LPAREN,
+            Token::INT,
+            Token::LT,
+            Token::INT,
+            Token::RPAREN,
+            Token::LBRACE,
+            Token::RETURN,
+            Token::TRUE,
+            Token::SEMICOLON,
+            Token::RBRACE,
+            Token::ELSE,
+            Token::LBRACE,
+            Token::RETURN,
+            Token::FALSE,
+            Token::SEMICOLON,
+            Token::RBRACE,
+            Token::INT,
+            Token::EQ,
+            Token::INT,
+            Token::SEMICOLON,
+            Token::INT,
+            Token::NOT_EQ,
+            Token::INT,
+            Token::SEMICOLON,
+            Token::EOF,
         ];
 
         let mut lexer = Lexer::new(input);
 
         for token in expected.iter() {
             let tok = lexer.next_token();
-            assert_eq!(&tok.token_type, token);
+            assert_eq!(&tok, token);
         }
     }
 }
