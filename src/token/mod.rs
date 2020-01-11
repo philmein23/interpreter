@@ -29,12 +29,6 @@ pub enum Token {
     NOT_EQ,
 }
 
-// #[derive(Debug)]
-// pub struct Token {
-//     pub token_type: TokenType,
-//     pub literal: String,
-// }
-
 pub fn lookup_identifier(identifier: &str) -> Option<Token> {
     match identifier {
         "fn" => Some(Token::FUNCTION),
