@@ -104,7 +104,8 @@ impl Lexer {
             _ => {
                 if is_letter(self.ch) {
                     let literal = self.read_identifier();
-                    return lookup_identifier(literal).unwrap_or_else(|| Token::IDENT);
+                    return lookup_identifier(literal)
+                        .unwrap_or_else(|| Token::IDENT(literal.to_string()));
                 } else if is_digit(self.ch) {
                     let literal = self.read_number();
                     return Token::INT;
@@ -178,39 +179,39 @@ mod tests {
 
         let expected = vec![
             Token::LET,
-            Token::IDENT,
+            Token::IDENT("five".to_string()),
             Token::ASSIGN,
             Token::INT,
             Token::SEMICOLON,
             Token::LET,
-            Token::IDENT,
+            Token::IDENT("ten".to_string()),
             Token::ASSIGN,
             Token::INT,
             Token::SEMICOLON,
             Token::LET,
-            Token::IDENT,
+            Token::IDENT("add".to_string()),
             Token::ASSIGN,
             Token::FUNCTION,
             Token::LPAREN,
-            Token::IDENT,
+            Token::IDENT("x".to_string()),
             Token::COMMA,
-            Token::IDENT,
+            Token::IDENT("y".to_string()),
             Token::RPAREN,
             Token::LBRACE,
-            Token::IDENT,
+            Token::IDENT("x".to_string()),
             Token::PLUS,
-            Token::IDENT,
+            Token::IDENT("y".to_string()),
             Token::SEMICOLON,
             Token::RBRACE,
             Token::SEMICOLON,
             Token::LET,
-            Token::IDENT,
+            Token::IDENT("result".to_string()),
             Token::ASSIGN,
-            Token::IDENT,
+            Token::IDENT("add".to_string()),
             Token::LPAREN,
-            Token::IDENT,
+            Token::IDENT("five".to_string()),
             Token::COMMA,
-            Token::IDENT,
+            Token::IDENT("ten".to_string()),
             Token::RPAREN,
             Token::SEMICOLON,
             Token::BANG,

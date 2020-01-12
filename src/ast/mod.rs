@@ -1,17 +1,17 @@
 use crate::token::Token;
 
-pub struct Identifier {
-    pub token: Token,
-    pub value: String,
-}
+#[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
-    Let { name: String, value: Expression },
+    Let { name: String },
 }
 
-pub enum Expression {}
+#[derive(Clone, Debug, PartialEq)]
+pub enum Expression {
+    IntegerLiteral(i32),
+}
 
 pub struct Program {
-    statements: Vec<Statement>,
+    pub statements: Vec<Statement>,
 }
 
 impl Program {
