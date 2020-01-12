@@ -8,6 +8,7 @@ pub struct Parser {
     lexer: Lexer,
     current_token: Token,
     peek_token: Token,
+    errors: Vec<String>,
 }
 
 impl Parser {
@@ -16,6 +17,7 @@ impl Parser {
             lexer,
             current_token: Token::ILLEGAL,
             peek_token: Token::ILLEGAL,
+            errors: vec![],
         };
 
         p.next_token();
@@ -36,7 +38,7 @@ impl Parser {
                     statements.push(statement);
                 }
                 Err(error) => {
-                    panic!("Error with parsing");
+                    panic!("Error with parsing: {:?}", error);
                 }
             }
 
@@ -46,19 +48,27 @@ impl Parser {
         ast::Program { statements }
     }
 
-    fn parse_statement(&mut self) -> Result<Statement, Box<dyn Error>> {
+    fn parse_statement(&mut self) -> Result<Statement, &'static str> {
+        match self.current_token {
+            Token::LET => self.parse_let_statement(),
+            Token::RETURN => self.parse_return_statement(),
+            _ => Err(""),
+        }
+    }
+
+    fn parse_let_statement(&mut self) -> Result<Statement, &'static str> {
         let name;
         if let Token::IDENT(iden) = self.peek_token.clone() {
             name = iden;
             self.next_token();
         } else {
-            panic!("No identifier located");
+            return Err("No identifier located");
         }
 
         if self.expectPeek(Token::ASSIGN) {
             self.next_token();
         } else {
-            panic!("There is no ASSIGN (=) token");
+            return Err("There is no ASSIGN (=) token");
         }
 
         // TODO: remove method call after implementing expression parsing
@@ -71,12 +81,38 @@ impl Parser {
         Ok(Statement::Let { name })
     }
 
-    fn expectPeek(&self, expected: Token) -> bool {
+    fn parse_return_statement(&mut self) -> Result<Statement, &'static str> {
+        let value;
+        if let Token::INT(v) = self.peek_token.clone() {
+            value = v.parse::<i32>().unwrap();
+            self.next_token();
+        } else {
+            return Err("no expression found");
+        }
+
+        if self.expectPeek(Token::SEMICOLON) {
+            self.next_token();
+        }
+
+        Ok(Statement::Return(Some(Expression::IntegerLiteral(value))))
+    }
+
+    fn expectPeek(&mut self, expected: Token) -> bool {
         if self.peek_token == expected {
             true
         } else {
+            self.peekError(expected);
             false
         }
+    }
+
+    fn peekError(&mut self, token: Token) {
+        let error_msg = format!(
+            "Expected next token to be {:?} but instead got {:?}",
+            token, self.peek_token
+        );
+
+        self.errors.push(error_msg);
     }
 }
 
@@ -96,6 +132,7 @@ mod tests {
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
+        check_parse_errors(parser);
 
         if program.statements.len() != 3 {
             panic!("Program statements does not contain 3 statements");
@@ -117,5 +154,41 @@ mod tests {
         ];
 
         assert_eq!(expected, program.statements);
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let input = "
+        return 5;
+        return 10;
+        return 993322;
+        ";
+
+        let mut lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        check_parse_errors(parser);
+
+        if program.statements.len() != 3 {
+            panic!("Program statements does not contain 3 statements");
+        }
+
+        let expected = vec![
+            Statement::Return(Some(Expression::IntegerLiteral(5))),
+            Statement::Return(Some(Expression::IntegerLiteral(10))),
+            Statement::Return(Some(Expression::IntegerLiteral(993322))),
+        ];
+
+        assert_eq!(program.statements, expected);
+    }
+
+    fn check_parse_errors(parser: Parser) {
+        let errors = parser.errors;
+        if errors.len() > 0 {
+            for error in errors {
+                panic!("{:?}", error);
+            }
+        }
     }
 }

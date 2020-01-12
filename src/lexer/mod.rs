@@ -108,7 +108,7 @@ impl Lexer {
                         .unwrap_or_else(|| Token::IDENT(literal.to_string()));
                 } else if is_digit(self.ch) {
                     let literal = self.read_number();
-                    return Token::INT;
+                    return Token::INT(literal.to_string());
                 } else {
                     return Token::EOF;
                 };
@@ -181,12 +181,12 @@ mod tests {
             Token::LET,
             Token::IDENT("five".to_string()),
             Token::ASSIGN,
-            Token::INT,
+            Token::INT("5".to_string()),
             Token::SEMICOLON,
             Token::LET,
             Token::IDENT("ten".to_string()),
             Token::ASSIGN,
-            Token::INT,
+            Token::INT("10".to_string()),
             Token::SEMICOLON,
             Token::LET,
             Token::IDENT("add".to_string()),
@@ -218,19 +218,19 @@ mod tests {
             Token::MINUS,
             Token::SLASH,
             Token::ASTERISK,
-            Token::INT,
+            Token::INT("5".to_string()),
             Token::SEMICOLON,
-            Token::INT,
+            Token::INT("5".to_string()),
             Token::LT,
-            Token::INT,
+            Token::INT("10".to_string()),
             Token::GT,
-            Token::INT,
+            Token::INT("5".to_string()),
             Token::SEMICOLON,
             Token::IF,
             Token::LPAREN,
-            Token::INT,
+            Token::INT("5".to_string()),
             Token::LT,
-            Token::INT,
+            Token::INT("10".to_string()),
             Token::RPAREN,
             Token::LBRACE,
             Token::RETURN,
@@ -243,13 +243,13 @@ mod tests {
             Token::FALSE,
             Token::SEMICOLON,
             Token::RBRACE,
-            Token::INT,
+            Token::INT("10".to_string()),
             Token::EQ,
-            Token::INT,
+            Token::INT("10".to_string()),
             Token::SEMICOLON,
-            Token::INT,
+            Token::INT("10".to_string()),
             Token::NOT_EQ,
-            Token::INT,
+            Token::INT("9".to_string()),
             Token::SEMICOLON,
             Token::EOF,
         ];

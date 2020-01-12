@@ -3,6 +3,7 @@ use crate::token::Token;
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
     Let { name: String },
+    Return(Option<Expression>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -12,10 +13,6 @@ pub enum Expression {
 
 pub struct Program {
     pub statements: Vec<Statement>,
-}
-
-impl Program {
-    // fn token_literal(&self) -> String {}
 }
 
 #[cfg(test)]
