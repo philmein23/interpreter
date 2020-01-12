@@ -1,18 +1,51 @@
 use crate::token::Token;
+use std::fmt;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
-    Let { name: String },
+    Let { name: String, value: Expression },
     Return(Option<Expression>),
+    Expression(Expression),
+}
+
+impl fmt::Display for Statement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Statement::Let { name, value } => write!(f, "let {} = {}", name, value),
+            Statement::Return(None) => write!(f, "return;"),
+            Statement::Return(Some(exp)) => write!(f, "return {};", exp),
+            Statement::Expression(exp) => write!(f, "{};", exp),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
-    IntegerLiteral(i32),
+    IntegerLiteral(i64),
+    Identifier(String),
+}
+
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Expression::Identifier(ident) => write!(f, "{}", ident),
+            Expression::IntegerLiteral(int) => write!(f, "{}", int),
+        }
+    }
 }
 
 pub struct Program {
     pub statements: Vec<Statement>,
+}
+
+impl fmt::Display for Program {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for statement in &self.statements {
+            write!(f, "{}", statement);
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
