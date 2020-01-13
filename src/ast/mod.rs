@@ -23,6 +23,8 @@ impl fmt::Display for Statement {
 pub enum Expression {
     IntegerLiteral(i64),
     Identifier(String),
+    Boolean(bool),
+    Prefix(Prefix, Box<Expression>),
 }
 
 impl fmt::Display for Expression {
@@ -30,10 +32,26 @@ impl fmt::Display for Expression {
         match self {
             Expression::Identifier(ident) => write!(f, "{}", ident),
             Expression::IntegerLiteral(int) => write!(f, "{}", int),
+            Expression::Boolean(bool_value) => write!(f, "{}", bool_value),
+            Expression::Prefix(prefix, exp) => write!(f, "({},{})", prefix, exp),
         }
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum Prefix {
+    BANG,
+    MINUS,
+}
+
+impl fmt::Display for Prefix {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Prefix::BANG => write!(f, "!"),
+            Prefix::MINUS => write!(f, "-"),
+        }
+    }
+}
 pub struct Program {
     pub statements: Vec<Statement>,
 }
