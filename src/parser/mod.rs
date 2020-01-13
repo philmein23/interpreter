@@ -1,4 +1,4 @@
-use crate::ast::{self, Expression, Statement};
+use crate::ast::{self, Expression, Prefix, Statement};
 use crate::lexer::Lexer;
 use crate::token::Token;
 use std::mem;
@@ -90,6 +90,7 @@ impl Parser {
 
         if self.expectPeek(Token::SEMICOLON) {
             self.next_token();
+            // current_token: is ;
         }
 
         Ok(Statement::Let {
@@ -123,6 +124,7 @@ impl Parser {
 
         if self.expectPeek(Token::SEMICOLON) {
             self.next_token();
+            // current_token: is ;
         }
 
         expression.map(Statement::Expression)
@@ -141,6 +143,10 @@ impl Parser {
         match self.current_token {
             Token::IDENT(_) => Some(Parser::parse_identifier),
             Token::INT(_) => Some(Parser::parse_integer_literal),
+            Token::BANG => Some(Parser::parse_prefix_expression),
+            Token::MINUS => Some(Parser::parse_prefix_expression),
+            Token::TRUE => Some(Parser::parse_boolean),
+            Token::FALSE => Some(Parser::parse_boolean),
             _ => None,
         }
     }
@@ -165,6 +171,36 @@ impl Parser {
         }
 
         Ok(value).map(Expression::IntegerLiteral)
+    }
+
+    fn parse_prefix_expression(&mut self) -> Result<Expression, &'static str> {
+        // current_token: either ! or -
+        let p = self.prefix_token(&self.current_token)?;
+        self.next_token();
+        // current_token will be the first token of the expression based on context (5, 'foobar', add(5))
+        let expression = self.parse_expression(Precedence::Prefix)?;
+        // current_token will be the last token of the expression
+        Ok(Expression::Prefix(p, Box::new(expression)))
+    }
+
+    fn prefix_token(&self, token: &Token) -> Result<Prefix, &'static str> {
+        let result = match token {
+            Token::BANG => Ok(Prefix::BANG),
+            Token::MINUS => Ok(Prefix::MINUS),
+            _ => Err("Expected Prefix token"),
+        };
+
+        result
+    }
+
+    fn parse_boolean(&mut self) -> Result<Expression, &'static str> {
+        let result = match self.current_token {
+            Token::TRUE => Ok(Expression::Boolean(true)),
+            Token::FALSE => Ok(Expression::Boolean(false)),
+            _ => Err("Expected boolean token"),
+        };
+
+        result
     }
 
     fn expectPeek(&mut self, expected: Token) -> bool {
@@ -268,6 +304,43 @@ mod tests {
         ))];
 
         assert_eq!(expected, program.statements);
+    }
+
+    #[test]
+    fn test_prefix_operator_expression() {
+        let input = "
+        -5;
+        -15;
+        !true;
+        !false;
+        ";
+
+        let mut lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        check_parse_errors(parser);
+
+        let expected = vec![
+            Statement::Expression(Expression::Prefix(
+                Prefix::MINUS,
+                Box::new(Expression::IntegerLiteral(5)),
+            )),
+            Statement::Expression(Expression::Prefix(
+                Prefix::MINUS,
+                Box::new(Expression::IntegerLiteral(15)),
+            )),
+            Statement::Expression(Expression::Prefix(
+                Prefix::BANG,
+                Box::new(Expression::Boolean(true)),
+            )),
+            Statement::Expression(Expression::Prefix(
+                Prefix::BANG,
+                Box::new(Expression::Boolean(false)),
+            )),
+        ];
+
+        assert_eq!(program.statements, expected);
     }
 
     fn check_parse_errors(parser: Parser) {
