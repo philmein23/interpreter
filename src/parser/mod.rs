@@ -1,8 +1,9 @@
-use crate::ast::{self, Expression, Prefix, Statement};
+use crate::ast::{self, Expression, Infix, Prefix, Statement};
 use crate::lexer::Lexer;
 use crate::token::Token;
 use std::mem;
 
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum Precedence {
     Lowest,
     Equals,      // ==
@@ -87,6 +88,7 @@ impl Parser {
         self.next_token();
         // current_token: first token of the value expression
         let expression = self.parse_expression(Precedence::Lowest)?;
+        // current_token: last token of value expression
 
         if self.expectPeek(Token::SEMICOLON) {
             self.next_token();
@@ -102,7 +104,7 @@ impl Parser {
     fn parse_return_statement(&mut self) -> Result<Statement, &'static str> {
         // current_token: 'return'
         self.next_token();
-        // current_token: 'is either ; or the first token of theexpression'
+        // current_token: 'is either ; or the first token of the expression'
 
         if self.current_token == Token::SEMICOLON {
             return Ok(Statement::Return(None));
@@ -136,6 +138,17 @@ impl Parser {
             .ok_or_else(|| "No associated prefix parsing fn")?;
         let mut left_exp = prefix(self);
 
+        let (peek_precedence, _) = self.lookup_precedence(&self.peek_token);
+        while !self.expectPeek(Token::SEMICOLON) && precedence < peek_precedence {
+            let infix = self
+                .parse_infix_fn()
+                .ok_or_else(|| "No associated infix parsing fn")?;
+
+            self.next_token();
+
+            left_exp = infix(self, left_exp?);
+        }
+
         left_exp
     }
 
@@ -149,6 +162,30 @@ impl Parser {
             Token::FALSE => Some(Parser::parse_boolean),
             _ => None,
         }
+    }
+
+    fn parse_infix_fn(&self) -> Option<InfixParseFn> {
+        match self.peek_token {
+            Token::PLUS => Some(Parser::parse_infix_expressions),
+            Token::MINUS => Some(Parser::parse_infix_expressions),
+            Token::SLASH => Some(Parser::parse_infix_expressions),
+            Token::ASTERISK => Some(Parser::parse_infix_expressions),
+            Token::EQ => Some(Parser::parse_infix_expressions),
+            Token::NOT_EQ => Some(Parser::parse_infix_expressions),
+            Token::LT => Some(Parser::parse_infix_expressions),
+            Token::GT => Some(Parser::parse_infix_expressions),
+            _ => None,
+        }
+    }
+
+    fn parse_infix_expressions(&mut self, left: Expression) -> Result<Expression, &'static str> {
+        let (current_precedence, infix) = self.lookup_precedence(&self.current_token);
+        println!("CURRENT: {:?} {:?}", current_precedence, infix);
+        let i = infix.ok_or_else(|| "Error: expected infixed operator")?;
+        self.next_token();
+        let right = self.parse_expression(current_precedence)?;
+
+        Ok(Expression::Infix(i, Box::new(left), Box::new(right)))
     }
 
     fn parse_identifier(&mut self) -> Result<Expression, &'static str> {
@@ -219,6 +256,20 @@ impl Parser {
         );
 
         self.errors.push(error_msg);
+    }
+
+    fn lookup_precedence(&self, token: &Token) -> (Precedence, Option<Infix>) {
+        match token {
+            Token::EQ => (Precedence::Equals, Some(Infix::EQ)),
+            Token::NOT_EQ => (Precedence::Equals, Some(Infix::NOT_EQ)),
+            Token::LT => (Precedence::LessGreater, Some(Infix::LT)),
+            Token::GT => (Precedence::LessGreater, Some(Infix::GT)),
+            Token::PLUS => (Precedence::Sum, Some(Infix::PLUS)),
+            Token::MINUS => (Precedence::Sum, Some(Infix::MINUS)),
+            Token::SLASH => (Precedence::Product, Some(Infix::SLASH)),
+            Token::ASTERISK => (Precedence::Product, Some(Infix::ASTERISK)),
+            _ => (Precedence::Lowest, None),
+        }
     }
 }
 
@@ -343,11 +394,76 @@ mod tests {
         assert_eq!(program.statements, expected);
     }
 
+    #[test]
+    fn test_infix_operator_expression() {
+        let input = "
+        5 + 5;
+        5 - 5;
+        5 * 5;
+        5 / 5;
+        5 > 5;
+        5 < 5;
+        5 == 5;
+        5 != 5;
+        ";
+
+        let mut lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        check_parse_errors(parser);
+
+        let expected = vec![
+            Statement::Expression(Expression::Infix(
+                Infix::PLUS,
+                Box::new(Expression::IntegerLiteral(5)),
+                Box::new(Expression::IntegerLiteral(5)),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::MINUS,
+                Box::new(Expression::IntegerLiteral(5)),
+                Box::new(Expression::IntegerLiteral(5)),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::ASTERISK,
+                Box::new(Expression::IntegerLiteral(5)),
+                Box::new(Expression::IntegerLiteral(5)),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::SLASH,
+                Box::new(Expression::IntegerLiteral(5)),
+                Box::new(Expression::IntegerLiteral(5)),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::GT,
+                Box::new(Expression::IntegerLiteral(5)),
+                Box::new(Expression::IntegerLiteral(5)),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::LT,
+                Box::new(Expression::IntegerLiteral(5)),
+                Box::new(Expression::IntegerLiteral(5)),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::EQ,
+                Box::new(Expression::IntegerLiteral(5)),
+                Box::new(Expression::IntegerLiteral(5)),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::NOT_EQ,
+                Box::new(Expression::IntegerLiteral(5)),
+                Box::new(Expression::IntegerLiteral(5)),
+            )),
+        ];
+
+        assert_eq!(program.statements, expected);
+    }
+
     fn check_parse_errors(parser: Parser) {
         let errors = parser.errors;
         if errors.len() > 0 {
             for error in errors {
-                panic!("{:?}", error);
+                println!("{:?}", error);
             }
         }
     }
