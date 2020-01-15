@@ -180,7 +180,6 @@ impl Parser {
 
     fn parse_infix_expressions(&mut self, left: Expression) -> Result<Expression, &'static str> {
         let (current_precedence, infix) = self.lookup_precedence(&self.current_token);
-        println!("CURRENT: {:?} {:?}", current_precedence, infix);
         let i = infix.ok_or_else(|| "Error: expected infixed operator")?;
         self.next_token();
         let right = self.parse_expression(current_precedence)?;
@@ -453,6 +452,38 @@ mod tests {
                 Infix::NOT_EQ,
                 Box::new(Expression::IntegerLiteral(5)),
                 Box::new(Expression::IntegerLiteral(5)),
+            )),
+        ];
+
+        assert_eq!(program.statements, expected);
+    }
+
+    #[test]
+    fn test_infix_boolean_expressions() {
+        let input = "
+         true == true;
+         !true == false;
+        ";
+
+        let mut lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        check_parse_errors(parser);
+
+        let expected = [
+            Statement::Expression(Expression::Infix(
+                Infix::EQ,
+                Box::new(Expression::Boolean(true)),
+                Box::new(Expression::Boolean(true)),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::EQ,
+                Box::new(Expression::Prefix(
+                    Prefix::BANG,
+                    Box::new(Expression::Boolean(true)),
+                )),
+                Box::new(Expression::Boolean(false)),
             )),
         ];
 
