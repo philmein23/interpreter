@@ -95,11 +95,3 @@ impl fmt::Display for Program {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_ast() {}
-}

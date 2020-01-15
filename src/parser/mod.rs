@@ -160,6 +160,7 @@ impl Parser {
             Token::MINUS => Some(Parser::parse_prefix_expression),
             Token::TRUE => Some(Parser::parse_boolean),
             Token::FALSE => Some(Parser::parse_boolean),
+            Token::LPAREN => Some(Parser::parse_grouped_expressions),
             _ => None,
         }
     }
@@ -237,6 +238,20 @@ impl Parser {
         };
 
         result
+    }
+
+    fn parse_grouped_expressions(&mut self) -> Result<Expression, &'static str> {
+        // current_token: Token::LPAREN
+        self.next_token();
+        // current_token: value expression
+
+        let expression = self.parse_expression(Precedence::Lowest);
+
+        if !self.expectPeek(Token::RPAREN) {
+            return Err("No right parenthsis in expression");
+        }
+
+        expression
     }
 
     fn expectPeek(&mut self, expected: Token) -> bool {
@@ -489,7 +504,6 @@ mod tests {
 
         assert_eq!(program.statements, expected);
     }
-
     fn check_parse_errors(parser: Parser) {
         let errors = parser.errors;
         if errors.len() > 0 {
