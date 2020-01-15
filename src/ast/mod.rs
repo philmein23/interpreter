@@ -35,7 +35,7 @@ impl fmt::Display for Expression {
             Expression::IntegerLiteral(int) => write!(f, "{}", int),
             Expression::Boolean(bool_value) => write!(f, "{}", bool_value),
             Expression::Prefix(prefix, exp) => write!(f, "({},{})", prefix, exp),
-            Expression::Infix(infix, exp1, exp2) => write!(f, "({},{},{})", infix, exp1, exp2),
+            Expression::Infix(infix, exp1, exp2) => write!(f, "({},{},{})", exp1, infix, exp2),
         }
     }
 }
