@@ -138,15 +138,17 @@ impl Parser {
             .ok_or_else(|| "No associated prefix parsing fn")?;
         let mut left_exp = prefix(self);
 
-        let (peek_precedence, _) = self.lookup_precedence(&self.peek_token);
-        while !self.expectPeek(Token::SEMICOLON) && precedence < peek_precedence {
-            let infix = self
-                .parse_infix_fn()
-                .ok_or_else(|| "No associated infix parsing fn")?;
+        while !self.expectPeek(Token::SEMICOLON)
+            && precedence < self.lookup_precedence(&self.peek_token).0
+        {
+            if let Some(infix) = self.parse_infix_fn() {
+                self.next_token();
 
-            self.next_token();
-
-            left_exp = infix(self, left_exp?);
+                left_exp = infix(self, left_exp?);
+            } else {
+                print!("HI");
+                return Ok(left_exp?);
+            }
         }
 
         left_exp
@@ -161,6 +163,7 @@ impl Parser {
             Token::TRUE => Some(Parser::parse_boolean),
             Token::FALSE => Some(Parser::parse_boolean),
             Token::LPAREN => Some(Parser::parse_grouped_expressions),
+            Token::IF => Some(Parser::parse_if_expression),
             _ => None,
         }
     }
@@ -179,10 +182,80 @@ impl Parser {
         }
     }
 
+    fn parse_if_expression(&mut self) -> Result<Expression, &'static str> {
+        if self.expectPeek(Token::LPAREN) {
+            self.next_token();
+        } else {
+            return Err("Expected left parenthesis");
+        }
+
+        self.next_token();
+        // current_token: first token of expression
+
+        let condition = self.parse_expression(Precedence::Lowest)?;
+
+        if self.expectPeek(Token::RPAREN) {
+            self.next_token();
+        } else {
+            return Err("Expected right parenthesis");
+        }
+
+        if self.expectPeek(Token::LBRACE) {
+            self.next_token();
+        } else {
+            return Err("Expected left braces");
+        }
+
+        let consequence = self.parse_block_statement()?;
+
+        // current_token: Token::RBRACE
+
+        if self.expectPeek(Token::ELSE) {
+            self.next_token();
+            // current_token: Token::ELSE
+
+            if self.expectPeek(Token::LBRACE) {
+                self.next_token();
+            //current_token: Token::LBRACE
+            } else {
+                return Err("Expected left brace");
+            }
+
+            let alternative = self.parse_block_statement()?;
+
+            return Ok(Expression::If(
+                Box::new(condition),
+                consequence,
+                Some(alternative),
+            ));
+        }
+
+        Ok(Expression::If(Box::new(condition), consequence, None))
+    }
+
+    fn parse_block_statement(&mut self) -> Result<ast::BlockStatement, &'static str> {
+        let mut statements = vec![];
+
+        self.next_token();
+        // current_token: whatever token type within a statement
+
+        while self.current_token != Token::RBRACE && self.current_token != Token::EOF {
+            statements.push(self.parse_statement()?);
+
+            self.next_token();
+        }
+
+        Ok(ast::BlockStatement { statements })
+    }
+
     fn parse_infix_expressions(&mut self, left: Expression) -> Result<Expression, &'static str> {
         let (current_precedence, infix) = self.lookup_precedence(&self.current_token);
         let i = infix.ok_or_else(|| "Error: expected infixed operator")?;
+        // current_token: infix operator
+
         self.next_token();
+
+        // current_token: expression right after infix operator
         let right = self.parse_expression(current_precedence)?;
 
         Ok(Expression::Infix(i, Box::new(left), Box::new(right)))
@@ -243,11 +316,12 @@ impl Parser {
     fn parse_grouped_expressions(&mut self) -> Result<Expression, &'static str> {
         // current_token: Token::LPAREN
         self.next_token();
-        // current_token: value expression
-
+        // current_token: first token of value expression
         let expression = self.parse_expression(Precedence::Lowest);
 
-        if !self.expectPeek(Token::RPAREN) {
+        if self.expectPeek(Token::RPAREN) {
+            self.next_token();
+        } else {
             return Err("No right parenthsis in expression");
         }
 
@@ -504,6 +578,34 @@ mod tests {
 
         assert_eq!(program.statements, expected);
     }
+
+    #[test]
+    fn test_if_expressions() {
+        let input = vec![
+            ("if (x < y) { x }", "if (x < y) { x; };"),
+            (
+                "if (x < y) { x } else { y }",
+                "if (x < y) { x; } else { y; };",
+            ),
+        ];
+
+        test_parsing(input);
+    }
+
+    fn test_parsing(tests: Vec<(&str, &str)>) {
+        for (input, expected) in tests {
+            let mut lexer = Lexer::new(input.to_string());
+            let mut parser = Parser::new(lexer);
+
+            let program = parser.parse_program();
+            check_parse_errors(parser);
+
+            println!("HERE: {:?}", program.to_string());
+
+            assert_eq!(program.to_string(), expected);
+        }
+    }
+
     fn check_parse_errors(parser: Parser) {
         let errors = parser.errors;
         if errors.len() > 0 {
