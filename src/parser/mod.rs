@@ -164,6 +164,7 @@ impl Parser {
             Token::FALSE => Some(Parser::parse_boolean),
             Token::LPAREN => Some(Parser::parse_grouped_expressions),
             Token::IF => Some(Parser::parse_if_expression),
+            Token::FUNCTION => Some(Parser::parse_function_literal_expression),
             _ => None,
         }
     }
@@ -180,6 +181,69 @@ impl Parser {
             Token::GT => Some(Parser::parse_infix_expressions),
             _ => None,
         }
+    }
+
+    fn parse_function_literal_expression(&mut self) -> Result<Expression, &'static str> {
+        if self.expectPeek(Token::LPAREN) {
+            self.next_token();
+        // current_token: Token::LPAREN
+        } else {
+            return Err("Expected left parenthesis");
+        }
+
+        let parameters = self.parse_function_parameters()?;
+
+        if self.expectPeek(Token::LBRACE) {
+            self.next_token();
+        } else {
+            return Err("Expect left brace");
+        }
+
+        let block_statement = self.parse_block_statement()?;
+
+        Ok(Expression::FunctionLiteral(parameters, block_statement))
+    }
+
+    fn parse_function_parameters(&mut self) -> Result<Vec<String>, &'static str> {
+        let mut params = vec![];
+
+        if self.expectPeek(Token::RPAREN) {
+            self.next_token();
+            // current_token: Token::RPAREN
+            return Ok(vec![]);
+        };
+
+        self.next_token();
+        // current_token: first expression identifier token in parameters
+        params.push(self.parse_expression_identifiers()?);
+        while self.expectPeek(Token::COMMA) {
+            self.next_token();
+            // current_token: Token::COMMA
+            self.next_token();
+            // current_token: Token::second expression identifier token in parameters
+            params.push(self.parse_expression_identifiers()?);
+        }
+
+        if self.expectPeek(Token::RPAREN) {
+            self.next_token();
+        // current_token: Token::RPAREN
+        } else {
+            return Err("Expected right parenthesis");
+        }
+
+        Ok(params)
+    }
+
+    fn parse_expression_identifiers(&self) -> Result<String, &'static str> {
+        let ident;
+
+        if let Token::IDENT(i) = &self.current_token {
+            ident = i.to_string();
+        } else {
+            return Err("no identitier found");
+        }
+
+        Ok(ident)
     }
 
     fn parse_if_expression(&mut self) -> Result<Expression, &'static str> {
@@ -586,6 +650,11 @@ mod tests {
             (
                 "if (x < y) { x } else { y }",
                 "if (x < y) { x; } else { y; };",
+            ),
+            ("fn(x, y) { x + y; }", "fn(x, y) { (x + y); };"),
+            (
+                "fn(x, y, z) { x + y + z; }",
+                "fn(x, y, z) { ((x + y) + z); };",
             ),
         ];
 
