@@ -143,10 +143,10 @@ impl Parser {
         {
             if let Some(infix) = self.parse_infix_fn() {
                 self.next_token();
+                // current_token: infix operator token;
 
                 left_exp = infix(self, left_exp?);
             } else {
-                print!("HI");
                 return Ok(left_exp?);
             }
         }
@@ -179,8 +179,47 @@ impl Parser {
             Token::NOT_EQ => Some(Parser::parse_infix_expressions),
             Token::LT => Some(Parser::parse_infix_expressions),
             Token::GT => Some(Parser::parse_infix_expressions),
+            Token::LPAREN => Some(Parser::parse_call_expression),
             _ => None,
         }
+    }
+
+    fn parse_call_expression(&mut self, left: Expression) -> Result<Expression, &'static str> {
+        // current_token: Token::LPAREN
+        let arguments = self.parse_call_arguments()?;
+        Ok(Expression::Call(Box::new(left), Box::new(arguments)))
+    }
+
+    fn parse_call_arguments(&mut self) -> Result<Vec<Expression>, &'static str> {
+        let mut arguments = vec![];
+
+        if self.expectPeek(Token::RPAREN) {
+            self.next_token();
+            // current_token: Token::RPAREN
+            return Ok(arguments);
+        }
+
+        self.next_token();
+        // current_token: first token of expression of arguments
+
+        arguments.push(self.parse_expression(Precedence::Lowest)?);
+        while self.expectPeek(Token::COMMA) {
+            self.next_token();
+            // current_token: Token::COMMA
+            self.next_token();
+            // current_token: Token:: next token of expression in arguments
+
+            arguments.push(self.parse_expression(Precedence::Lowest)?);
+        }
+
+        if self.expectPeek(Token::RPAREN) {
+            self.next_token()
+        // current_token: Token::RPAREN
+        } else {
+            return Err("expecting right parenthesis");
+        }
+
+        Ok(arguments)
     }
 
     fn parse_function_literal_expression(&mut self) -> Result<Expression, &'static str> {
@@ -200,6 +239,7 @@ impl Parser {
         }
 
         let block_statement = self.parse_block_statement()?;
+        // current_token: Token::RBRACE
 
         Ok(Expression::FunctionLiteral(parameters, block_statement))
     }
@@ -286,6 +326,7 @@ impl Parser {
             }
 
             let alternative = self.parse_block_statement()?;
+            // current_token: Token::RBRACE
 
             return Ok(Expression::If(
                 Box::new(condition),
@@ -420,6 +461,7 @@ impl Parser {
             Token::MINUS => (Precedence::Sum, Some(Infix::MINUS)),
             Token::SLASH => (Precedence::Product, Some(Infix::SLASH)),
             Token::ASTERISK => (Precedence::Product, Some(Infix::ASTERISK)),
+            Token::LPAREN => (Precedence::Call, None),
             _ => (Precedence::Lowest, None),
         }
     }
@@ -656,6 +698,7 @@ mod tests {
                 "fn(x, y, z) { x + y + z; }",
                 "fn(x, y, z) { ((x + y) + z); };",
             ),
+            ("add(1, 2 * 3, 4 + 5)", "add(1, (2 * 3), (4 + 5));"),
         ];
 
         test_parsing(input);
