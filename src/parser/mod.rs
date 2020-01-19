@@ -20,11 +20,11 @@ pub struct Parser {
     lexer: Lexer,
     current_token: Token,
     peek_token: Token,
-    errors: Vec<String>,
+    pub errors: Vec<String>,
 }
 
 impl Parser {
-    fn new(lexer: Lexer) -> Parser {
+    pub fn new(lexer: Lexer) -> Parser {
         let mut p = Parser {
             lexer,
             current_token: Token::ILLEGAL,
@@ -41,7 +41,7 @@ impl Parser {
         self.current_token = mem::replace(&mut self.peek_token, self.lexer.next_token());
     }
 
-    fn parse_program(&mut self) -> ast::Program {
+    pub fn parse_program(&mut self) -> ast::Program {
         let mut statements = vec![];
 
         while self.current_token != Token::EOF {
@@ -697,6 +697,12 @@ mod tests {
             (
                 "fn(x, y, z) { x + y + z; }",
                 "fn(x, y, z) { ((x + y) + z); };",
+            ),
+            (
+                "fn(x, y, z) {
+                    return x + y + z;
+                }",
+                "fn(x, y, z) { return ((x + y) + z); };",
             ),
             ("add(1, 2 * 3, 4 + 5)", "add(1, (2 * 3), (4 + 5));"),
         ];
