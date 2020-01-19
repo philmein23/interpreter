@@ -28,6 +28,7 @@ pub enum Expression {
     Infix(Infix, Box<Expression>, Box<Expression>),
     If(Box<Expression>, BlockStatement, Option<BlockStatement>),
     FunctionLiteral(Vec<String>, BlockStatement),
+    Call(Box<Expression>, Box<Vec<Expression>>),
 }
 
 impl fmt::Display for Expression {
@@ -48,8 +49,17 @@ impl fmt::Display for Expression {
             Expression::FunctionLiteral(params, body) => {
                 write!(f, "fn({}) {}", params.join(", "), body)
             }
+            Expression::Call(exp, args) => write!(f, "{}({})", exp, comma_separated(args)),
         }
     }
+}
+
+fn comma_separated(expressions: &Vec<Expression>) -> String {
+    expressions
+        .iter()
+        .map(|e| e.to_string())
+        .collect::<Vec<String>>()
+        .join(", ")
 }
 
 #[derive(Clone, Debug, PartialEq)]
