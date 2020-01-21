@@ -40,6 +40,21 @@ fn eval_infix_expression(
         (Object::Integer(left), Object::Integer(right)) => {
             eval_integer_infix_expression(infix, left, right)
         }
+        (Object::Boolean(left), Object::Boolean(right)) => {
+            eval_boolean_infix_expression(infix, left, right)
+        }
+        _ => Ok(Object::Null),
+    }
+}
+
+fn eval_boolean_infix_expression(
+    infix: &Infix,
+    left: bool,
+    right: bool,
+) -> Result<Object, &'static str> {
+    match infix {
+        Infix::NOT_EQ => Ok(Object::Boolean(left != right)),
+        Infix::EQ => Ok(Object::Boolean(left == right)),
         _ => Ok(Object::Null),
     }
 }
@@ -129,6 +144,9 @@ mod tests {
             ("1 < 1", "false"),
             ("1 == 1", "true"),
             ("1 != 3", "true"),
+            ("true == true", "true"),
+            ("true != true", "false"),
+            ("true != false", "true"),
         ];
 
         expect_values(input);
