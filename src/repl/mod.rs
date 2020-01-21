@@ -1,6 +1,6 @@
+use crate::eval::eval;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-use crate::token::Token;
 use std::io::{self, Write};
 
 pub fn start() {
@@ -24,6 +24,8 @@ pub fn start() {
             }
         }
 
-        println!("{:?}", program.to_string())
+        if let Ok(evaluated) = eval(&program) {
+            println!("{:?}", evaluated);
+        }
     }
 }
