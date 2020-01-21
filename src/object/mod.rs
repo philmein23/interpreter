@@ -1,5 +1,6 @@
 use std::fmt;
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum Object {
     Integer(i64),
     Boolean(bool),
@@ -17,7 +18,7 @@ impl fmt::Display for Object {
 }
 
 impl Object {
-    fn type_name(&self) -> &str {
+    pub fn type_name(&self) -> &str {
         match self {
             Object::Integer(_) => "INTEGER",
             Object::Boolean(_) => "BOOLEAN",
