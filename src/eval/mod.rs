@@ -147,6 +147,7 @@ mod tests {
             ("true == true", "true"),
             ("true != true", "false"),
             ("true != false", "true"),
+            ("(1 > 2) == false", "true"),
         ];
 
         expect_values(input);
