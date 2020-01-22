@@ -5,6 +5,7 @@ pub enum Object {
     Integer(i64),
     Boolean(bool),
     Null,
+    Return(Box<Object>),
 }
 
 impl fmt::Display for Object {
@@ -13,6 +14,7 @@ impl fmt::Display for Object {
             Object::Integer(value) => write!(f, "{}", value),
             Object::Boolean(value) => write!(f, "{}", value),
             Object::Null => write!(f, "null"),
+            Object::Return(value) => write!(f, "{}", value),
         }
     }
 }
@@ -23,6 +25,7 @@ impl Object {
             Object::Integer(_) => "INTEGER",
             Object::Boolean(_) => "BOOLEAN",
             Object::Null => "NULL",
+            Object::Return(_) => "RETURN",
         }
     }
 }

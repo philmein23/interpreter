@@ -5,6 +5,10 @@ pub fn eval(program: &Program) -> Result<Object, &'static str> {
     let mut result = Object::Null;
     for statement in &program.statements {
         result = eval_statement(&statement)?;
+
+        if result.type_name() == "RETURN" {
+            return Ok(result);
+        }
     }
 
     Ok(result)
@@ -13,6 +17,14 @@ pub fn eval(program: &Program) -> Result<Object, &'static str> {
 fn eval_statement(statement: &Statement) -> Result<Object, &'static str> {
     match statement {
         Statement::Expression(exp) => eval_expression(exp),
+        Statement::Return(value) => {
+            if let Some(exp) = value {
+                let result = eval_expression(exp)?;
+                Ok(Object::Return(Box::new(result)))
+            } else {
+                Ok(Object::Null)
+            }
+        }
         _ => Err("No existence of statement"),
     }
 }
@@ -25,8 +37,49 @@ fn eval_expression(expression: &Expression) -> Result<Object, &'static str> {
         Expression::Infix(infix, operand_one, operand_two) => {
             eval_infix_expression(infix, operand_one, operand_two)
         }
+        Expression::If(condition, consequence, alternative) => {
+            eval_if_expression(condition, consequence, alternative)
+        }
         _ => Err("no existence of expression"),
     }
+}
+
+fn eval_if_expression(
+    condition: &Box<Expression>,
+    consequence: &BlockStatement,
+    alternative: &Option<BlockStatement>,
+) -> Result<Object, &'static str> {
+    let condition = eval_expression(condition)?;
+
+    match is_truthy(condition) {
+        true => eval_block_statement(consequence),
+        false => {
+            if let Some(alt) = alternative {
+                eval_block_statement(alt)
+            } else {
+                Ok(Object::Null)
+            }
+        }
+        _ => Ok(Object::Null),
+    }
+}
+
+fn is_truthy(condition: Object) -> bool {
+    match condition {
+        Object::Boolean(true) => true,
+        Object::Boolean(false) => false,
+        Object::Null => false,
+        _ => true,
+    }
+}
+
+pub fn eval_block_statement(block_statement: &BlockStatement) -> Result<Object, &'static str> {
+    let mut result = Object::Null;
+    for statement in &block_statement.statements {
+        result = eval_statement(&statement)?;
+    }
+
+    Ok(result)
 }
 
 fn eval_infix_expression(
@@ -148,6 +201,28 @@ mod tests {
             ("true != true", "false"),
             ("true != false", "true"),
             ("(1 > 2) == false", "true"),
+        ];
+
+        expect_values(input);
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = vec![
+            ("if (true) { 10 }", "10"),
+            ("if (false) { 10 }", "null"),
+            ("if (1) { 10 }", "10"),
+            ("if (1 > 2) { 10 } else { 20 }", "20"),
+        ];
+        expect_values(input);
+    }
+
+    #[test]
+    fn test_return_statement() {
+        let input = vec![
+            ("return 10;", "10"),
+            ("9; return 2 * 5; 9;", "10"),
+            ("return 2 * 5; 9;", "10"),
         ];
 
         expect_values(input);
