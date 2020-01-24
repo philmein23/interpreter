@@ -1,7 +1,7 @@
 use crate::ast::{BlockStatement, Expression, Infix, Prefix, Program, Statement};
-use crate::object::Object;
+use crate::object::{EvalError, EvalResult, Object};
 
-pub fn eval(program: &Program) -> Result<Object, &'static str> {
+pub fn eval(program: &Program) -> EvalResult {
     let mut result = Object::Null;
     for statement in &program.statements {
         result = eval_statement(&statement)?;
@@ -14,7 +14,7 @@ pub fn eval(program: &Program) -> Result<Object, &'static str> {
     Ok(result)
 }
 
-fn eval_statement(statement: &Statement) -> Result<Object, &'static str> {
+fn eval_statement(statement: &Statement) -> EvalResult {
     match statement {
         Statement::Expression(exp) => eval_expression(exp),
         Statement::Return(value) => {
@@ -25,11 +25,11 @@ fn eval_statement(statement: &Statement) -> Result<Object, &'static str> {
                 Ok(Object::Null)
             }
         }
-        _ => Err("No existence of statement"),
+        _ => Err(EvalError::General("no existence of statement".to_string())),
     }
 }
 
-fn eval_expression(expression: &Expression) -> Result<Object, &'static str> {
+fn eval_expression(expression: &Expression) -> EvalResult {
     match expression {
         Expression::IntegerLiteral(value) => Ok(Object::Integer(*value)),
         Expression::Boolean(value) => Ok(Object::Boolean(*value)),
@@ -40,7 +40,7 @@ fn eval_expression(expression: &Expression) -> Result<Object, &'static str> {
         Expression::If(condition, consequence, alternative) => {
             eval_if_expression(condition, consequence, alternative)
         }
-        _ => Err("no existence of expression"),
+        _ => Err(EvalError::General("No existence of expression".to_string())),
     }
 }
 
@@ -48,7 +48,7 @@ fn eval_if_expression(
     condition: &Box<Expression>,
     consequence: &BlockStatement,
     alternative: &Option<BlockStatement>,
-) -> Result<Object, &'static str> {
+) -> EvalResult {
     let condition = eval_expression(condition)?;
 
     match is_truthy(condition) {
@@ -73,10 +73,14 @@ fn is_truthy(condition: Object) -> bool {
     }
 }
 
-pub fn eval_block_statement(block_statement: &BlockStatement) -> Result<Object, &'static str> {
+pub fn eval_block_statement(block_statement: &BlockStatement) -> EvalResult {
     let mut result = Object::Null;
     for statement in &block_statement.statements {
         result = eval_statement(&statement)?;
+
+        if result.type_name() == "RETURN" {
+            return Ok(result);
+        }
     }
 
     Ok(result)
@@ -86,7 +90,7 @@ fn eval_infix_expression(
     infix: &Infix,
     operand_one: &Box<Expression>,
     operand_two: &Box<Expression>,
-) -> Result<Object, &'static str> {
+) -> EvalResult {
     let operand_one = eval_expression(operand_one)?;
     let operand_two = eval_expression(operand_two)?;
     match (operand_one, operand_two) {
@@ -96,27 +100,23 @@ fn eval_infix_expression(
         (Object::Boolean(left), Object::Boolean(right)) => {
             eval_boolean_infix_expression(infix, left, right)
         }
-        _ => Ok(Object::Null),
+        (left, right) => Err(EvalError::TypeMismatch(infix.clone(), left, right)),
     }
 }
 
-fn eval_boolean_infix_expression(
-    infix: &Infix,
-    left: bool,
-    right: bool,
-) -> Result<Object, &'static str> {
+fn eval_boolean_infix_expression(infix: &Infix, left: bool, right: bool) -> EvalResult {
     match infix {
         Infix::NOT_EQ => Ok(Object::Boolean(left != right)),
         Infix::EQ => Ok(Object::Boolean(left == right)),
-        _ => Ok(Object::Null),
+        _ => Err(EvalError::UnknownInfixOperator(
+            infix.clone(),
+            Object::Boolean(left),
+            Object::Boolean(right),
+        )),
     }
 }
 
-fn eval_integer_infix_expression(
-    infix: &Infix,
-    operand_one: i64,
-    operand_two: i64,
-) -> Result<Object, &'static str> {
+fn eval_integer_infix_expression(infix: &Infix, operand_one: i64, operand_two: i64) -> EvalResult {
     match infix {
         Infix::PLUS => Ok(Object::Integer(operand_one + operand_two)),
         Infix::MINUS => Ok(Object::Integer(operand_one - operand_two)),
@@ -126,23 +126,21 @@ fn eval_integer_infix_expression(
         Infix::LT => Ok(Object::Boolean(operand_one < operand_two)),
         Infix::NOT_EQ => Ok(Object::Boolean(operand_one != operand_two)),
         Infix::EQ => Ok(Object::Boolean(operand_one == operand_two)),
-        _ => Ok(Object::Null),
     }
 }
 
-fn eval_prefix_expression(
-    prefix: &Prefix,
-    operand: &Box<Expression>,
-) -> Result<Object, &'static str> {
+fn eval_prefix_expression(prefix: &Prefix, operand: &Box<Expression>) -> EvalResult {
     let operand = eval_expression(operand)?;
     match prefix {
         Prefix::BANG => eval_bang_operator_expression(operand),
-        Prefix::MINUS => eval_minus_operator_expression(operand),
-        _ => Ok(Object::Null),
+        Prefix::MINUS => match operand {
+            Object::Integer(value) => Ok(Object::Integer(-value)),
+            _ => Err(EvalError::UnknownPrefixOperator(prefix.clone(), operand)),
+        },
     }
 }
 
-fn eval_bang_operator_expression(operand: Object) -> Result<Object, &'static str> {
+fn eval_bang_operator_expression(operand: Object) -> EvalResult {
     match operand {
         Object::Boolean(true) => Ok(Object::Boolean(false)),
         Object::Boolean(false) => Ok(Object::Boolean(true)),
@@ -151,18 +149,11 @@ fn eval_bang_operator_expression(operand: Object) -> Result<Object, &'static str
     }
 }
 
-fn eval_minus_operator_expression(operand: Object) -> Result<Object, &'static str> {
-    match operand {
-        Object::Integer(value) => Ok(Object::Integer(-value)),
-        _ => Ok(Object::Null),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::eval::eval;
     use crate::lexer::Lexer;
-    use crate::object::Object;
+    use crate::object::EvalResult;
     use crate::parser::Parser;
 
     #[test]
@@ -223,9 +214,51 @@ mod tests {
             ("return 10;", "10"),
             ("9; return 2 * 5; 9;", "10"),
             ("return 2 * 5; 9;", "10"),
+            (
+                "if (10 > 1) {
+                if (10 > 1) {
+                  return 10;
+           }
+           return 1; }",
+                "10",
+            ),
         ];
 
         expect_values(input);
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let input = vec![
+            ("5 + true;", "type mismatch: INTEGER + BOOLEAN"),
+            ("5 + true; 5;", "type mismatch: INTEGER + BOOLEAN"),
+            ("-true", "unknown operator: -BOOLEAN"),
+            ("true + false;", "unknown operator: BOOLEAN + BOOLEAN"),
+            ("5; true + false; 5", "unknown operator: BOOLEAN + BOOLEAN"),
+            (
+                "if (10 > 1) { true + false; }",
+                "unknown operator: BOOLEAN + BOOLEAN",
+            ),
+            (
+                "if (10 > 1) { true + false; }; 8;",
+                "unknown operator: BOOLEAN + BOOLEAN",
+            ),
+            ("(1 + true) * 4;", "type mismatch: INTEGER + BOOLEAN"),
+            ("3 - (true * 2);", "type mismatch: BOOLEAN * INTEGER"),
+            (
+                "(3 + false) - (true * 2);",
+                "type mismatch: INTEGER + BOOLEAN",
+            ),
+            ("!(1 + true);", "type mismatch: INTEGER + BOOLEAN"),
+            ("return (1 + true) * 4;", "type mismatch: INTEGER + BOOLEAN"),
+            (
+                "if (3 == true) { 1 } else { 2 }",
+                "type mismatch: INTEGER == BOOLEAN",
+            ),
+            // ("foobar", "identifier not found: foobar"),
+        ];
+
+        expect_errors(input);
     }
 
     fn expect_values(tests: Vec<(&str, &str)>) {
@@ -242,11 +275,24 @@ mod tests {
         }
     }
 
-    fn eval_input(input: &str) -> Result<Object, &'static str> {
+    fn eval_input(input: &str) -> EvalResult {
         let lexer = Lexer::new(input.to_string());
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
 
         eval(&program)
+    }
+
+    fn expect_errors(tests: Vec<(&str, &str)>) {
+        for (input, expected_message) in &tests {
+            match eval_input(input) {
+                Ok(obj) => {
+                    panic!("no error object returned. got=`{}` for `{}`", obj, input);
+                }
+                Err(err) => {
+                    assert_eq!(&err.to_string(), expected_message, "for `{}`", input);
+                }
+            }
+        }
     }
 }
