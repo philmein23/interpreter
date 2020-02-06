@@ -1,7 +1,10 @@
 use crate::eval::eval;
 use crate::lexer::Lexer;
+use crate::object::environment::Environment;
 use crate::parser::Parser;
+use std::cell::RefCell;
 use std::io::{self, Write};
+use std::rc::Rc;
 
 pub fn start() {
     loop {
@@ -17,6 +20,7 @@ pub fn start() {
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
+        let env = Rc::new(RefCell::new(Environment::new()));
 
         if parser.errors.len() > 0 {
             for error in parser.errors {
@@ -24,7 +28,7 @@ pub fn start() {
             }
         }
 
-        if let Ok(evaluated) = eval(&program) {
+        if let Ok(evaluated) = eval(&program, env) {
             println!("{:?}", evaluated);
         }
     }

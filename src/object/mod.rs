@@ -1,6 +1,7 @@
 use crate::ast::{self, Expression, Infix, Prefix, Statement};
 use std::fmt;
 
+pub mod environment;
 pub type EvalResult = Result<Object, EvalError>;
 
 #[derive(Clone, Debug, PartialEq)]
