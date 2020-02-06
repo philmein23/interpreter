@@ -1,11 +1,13 @@
 use crate::ast::{BlockStatement, Expression, Infix, Prefix, Program, Statement};
+use crate::object::environment::Environment;
 use crate::object::{EvalError, EvalResult, Object};
+use std::cell::RefCell;
+use std::rc::Rc;
 
-pub fn eval(program: &Program) -> EvalResult {
+pub fn eval(program: &Program, env: Rc<RefCell<Environment>>) -> EvalResult {
     let mut result = Object::Null;
     for statement in &program.statements {
-        result = eval_statement(&statement)?;
-
+        result = eval_statement(&statement, Rc::clone(&env))?;
         if result.type_name() == "RETURN" {
             return Ok(result);
         }
@@ -14,12 +16,19 @@ pub fn eval(program: &Program) -> EvalResult {
     Ok(result)
 }
 
-fn eval_statement(statement: &Statement) -> EvalResult {
+fn eval_statement(statement: &Statement, env: Rc<RefCell<Environment>>) -> EvalResult {
     match statement {
-        Statement::Expression(exp) => eval_expression(exp),
+        Statement::Let { name, value } => {
+            let result = eval_expression(value, Rc::clone(&env))?;
+
+            env.borrow_mut().set(name, result.clone());
+
+            Ok(result)
+        }
+        Statement::Expression(exp) => eval_expression(exp, env),
         Statement::Return(value) => {
             if let Some(exp) = value {
-                let result = eval_expression(exp)?;
+                let result = eval_expression(exp, env)?;
                 Ok(Object::Return(Box::new(result)))
             } else {
                 Ok(Object::Null)
@@ -29,33 +38,43 @@ fn eval_statement(statement: &Statement) -> EvalResult {
     }
 }
 
-fn eval_expression(expression: &Expression) -> EvalResult {
+fn eval_expression(expression: &Expression, env: Rc<RefCell<Environment>>) -> EvalResult {
     match expression {
         Expression::IntegerLiteral(value) => Ok(Object::Integer(*value)),
         Expression::Boolean(value) => Ok(Object::Boolean(*value)),
-        Expression::Prefix(prefix, operand) => eval_prefix_expression(prefix, operand),
+        Expression::Prefix(prefix, operand) => eval_prefix_expression(prefix, operand, env),
         Expression::Infix(infix, operand_one, operand_two) => {
-            eval_infix_expression(infix, operand_one, operand_two)
+            eval_infix_expression(infix, operand_one, operand_two, env)
         }
         Expression::If(condition, consequence, alternative) => {
-            eval_if_expression(condition, consequence, alternative)
+            eval_if_expression(condition, consequence, alternative, env)
         }
+        Expression::Identifier(name) => eval_identifier(name, env),
         _ => Err(EvalError::General("No existence of expression".to_string())),
     }
+}
+
+fn eval_identifier(name: &str, env: Rc<RefCell<Environment>>) -> EvalResult {
+    if let Some(obj) = env.borrow().get(name) {
+        return Ok(obj);
+    }
+
+    Err(EvalError::IdentifierNotFound(name.to_string()))
 }
 
 fn eval_if_expression(
     condition: &Box<Expression>,
     consequence: &BlockStatement,
     alternative: &Option<BlockStatement>,
+    env: Rc<RefCell<Environment>>,
 ) -> EvalResult {
-    let condition = eval_expression(condition)?;
+    let condition = eval_expression(condition, Rc::clone(&env))?;
 
     match is_truthy(condition) {
-        true => eval_block_statement(consequence),
+        true => eval_block_statement(consequence, env),
         false => {
             if let Some(alt) = alternative {
-                eval_block_statement(alt)
+                eval_block_statement(alt, env)
             } else {
                 Ok(Object::Null)
             }
@@ -73,10 +92,13 @@ fn is_truthy(condition: Object) -> bool {
     }
 }
 
-pub fn eval_block_statement(block_statement: &BlockStatement) -> EvalResult {
+pub fn eval_block_statement(
+    block_statement: &BlockStatement,
+    env: Rc<RefCell<Environment>>,
+) -> EvalResult {
     let mut result = Object::Null;
     for statement in &block_statement.statements {
-        result = eval_statement(&statement)?;
+        result = eval_statement(&statement, Rc::clone(&env))?;
 
         if result.type_name() == "RETURN" {
             return Ok(result);
@@ -90,9 +112,10 @@ fn eval_infix_expression(
     infix: &Infix,
     operand_one: &Box<Expression>,
     operand_two: &Box<Expression>,
+    env: Rc<RefCell<Environment>>,
 ) -> EvalResult {
-    let operand_one = eval_expression(operand_one)?;
-    let operand_two = eval_expression(operand_two)?;
+    let operand_one = eval_expression(operand_one, Rc::clone(&env))?;
+    let operand_two = eval_expression(operand_two, env)?;
     match (operand_one, operand_two) {
         (Object::Integer(left), Object::Integer(right)) => {
             eval_integer_infix_expression(infix, left, right)
@@ -129,8 +152,12 @@ fn eval_integer_infix_expression(infix: &Infix, operand_one: i64, operand_two: i
     }
 }
 
-fn eval_prefix_expression(prefix: &Prefix, operand: &Box<Expression>) -> EvalResult {
-    let operand = eval_expression(operand)?;
+fn eval_prefix_expression(
+    prefix: &Prefix,
+    operand: &Box<Expression>,
+    env: Rc<RefCell<Environment>>,
+) -> EvalResult {
+    let operand = eval_expression(operand, env)?;
     match prefix {
         Prefix::BANG => eval_bang_operator_expression(operand),
         Prefix::MINUS => match operand {
@@ -153,8 +180,11 @@ fn eval_bang_operator_expression(operand: Object) -> EvalResult {
 mod tests {
     use crate::eval::eval;
     use crate::lexer::Lexer;
+    use crate::object::environment::Environment;
     use crate::object::EvalResult;
     use crate::parser::Parser;
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     #[test]
     fn test_integer_literal() {
@@ -261,6 +291,16 @@ mod tests {
         expect_errors(input);
     }
 
+    #[test]
+    fn let_statement() {
+        expect_values(vec![
+            ("let a = 5; a;", "5"),
+            ("let a = 5 * 5; a;", "25"),
+            ("let a = 5; let b = a; b;", "5"),
+            ("let a = 5; let b = a; let c = a + b + 5; c;", "15"),
+        ]);
+    }
+
     fn expect_values(tests: Vec<(&str, &str)>) {
         for (input, expected) in tests {
             match eval_input(input) {
@@ -280,7 +320,9 @@ mod tests {
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
 
-        eval(&program)
+        let env = Rc::new(RefCell::new(Environment::new()));
+
+        eval(&program, env)
     }
 
     fn expect_errors(tests: Vec<(&str, &str)>) {
