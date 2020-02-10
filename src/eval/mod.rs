@@ -50,8 +50,72 @@ fn eval_expression(expression: &Expression, env: Rc<RefCell<Environment>>) -> Ev
             eval_if_expression(condition, consequence, alternative, env)
         }
         Expression::Identifier(name) => eval_identifier(name, env),
+        Expression::FunctionLiteral(params, body) => eval_function(params, body, env),
+        Expression::Call(exp, args) => {
+            let func = eval_expression(exp, Rc::clone(&env))?;
+            let arguments = eval_expressions(args, env)?;
+            apply_function(func, arguments)
+        }
         _ => Err(EvalError::General("No existence of expression".to_string())),
     }
+}
+
+fn apply_function(func: Object, args: Vec<Object>) -> EvalResult {
+    if let Object::Function(params, body, env) = func {
+        let extended_env = extend_function_env(params, args, env);
+        let evaluated = eval_block_statement(&body, extended_env)?;
+        unwrap_return_values(evaluated)
+    } else {
+        return Err(EvalError::General("Not a function".to_string()));
+    }
+}
+
+fn extend_function_env(
+    params: Vec<String>,
+    args: Vec<Object>,
+    env: Rc<RefCell<Environment>>,
+) -> Rc<RefCell<Environment>> {
+    let extended_env = Rc::new(RefCell::new(Environment::extend(env)));
+
+    for (idx, param) in params.iter().enumerate() {
+        extended_env.borrow_mut().set(
+            param,
+            args.get(idx).cloned().unwrap_or_else(|| Object::Null),
+        );
+    }
+
+    extended_env
+}
+
+fn unwrap_return_values(obj: Object) -> EvalResult {
+    if let Object::Return(val) = obj {
+        return Ok(*val);
+    }
+
+    Ok(obj)
+}
+
+fn eval_expressions(
+    args: &[Expression],
+    env: Rc<RefCell<Environment>>,
+) -> Result<Vec<Object>, EvalError> {
+    let mut result = vec![];
+
+    for exp in args.iter() {
+        if let Ok(val) = eval_expression(exp, Rc::clone(&env)) {
+            result.push(val);
+        }
+    }
+
+    Ok(result)
+}
+
+fn eval_function(
+    params: &Vec<String>,
+    body: &BlockStatement,
+    env: Rc<RefCell<Environment>>,
+) -> EvalResult {
+    Ok(Object::Function(params.clone(), body.clone(), env))
 }
 
 fn eval_identifier(name: &str, env: Rc<RefCell<Environment>>) -> EvalResult {
@@ -298,6 +362,27 @@ mod tests {
             ("let a = 5 * 5; a;", "25"),
             ("let a = 5; let b = a; b;", "5"),
             ("let a = 5; let b = a; let c = a + b + 5; c;", "15"),
+        ]);
+    }
+
+    #[test]
+    fn function_object() {
+        expect_values(vec![("fn(x) { x + 2; }", "fn(x) {\n{ (x + 2); }\n}")]);
+    }
+
+    #[test]
+    fn function_application() {
+        expect_values(vec![
+            ("let identity = fn(x) { x; }; identity(5);", "5"),
+            ("let identity = fn(x) { return x; }; identity(5);", "5"),
+            ("let double = fn(x) { x * 2; }; double(5);", "10"),
+            ("let add = fn(x, y) { x + y; }; add(10, 23);", "33"),
+            (
+                "let add = fn(x, y) { x + y; }; add(3 + 4, add(10, 23));",
+                "40",
+            ),
+            ("fn(x) { x; }(5);", "5"),
+            ("fn(x) { x; }(1); 5;", "5"),
         ]);
     }
 

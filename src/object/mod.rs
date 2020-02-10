@@ -1,6 +1,8 @@
-use crate::ast::{self, Expression, Infix, Prefix, Statement};
+use crate::ast::{self, BlockStatement, Expression, Infix, Prefix, Statement};
+use crate::object::environment::Environment;
+use std::cell::RefCell;
 use std::fmt;
-
+use std::rc::Rc;
 pub mod environment;
 pub type EvalResult = Result<Object, EvalError>;
 
@@ -10,6 +12,7 @@ pub enum Object {
     Boolean(bool),
     Null,
     Return(Box<Object>),
+    Function(Vec<String>, BlockStatement, Rc<RefCell<Environment>>),
 }
 
 impl fmt::Display for Object {
@@ -19,6 +22,9 @@ impl fmt::Display for Object {
             Object::Boolean(value) => write!(f, "{}", value),
             Object::Null => write!(f, "null"),
             Object::Return(value) => write!(f, "{}", value),
+            Object::Function(params, body, env) => {
+                write!(f, "fn({}) {{\n{}\n}}", params.join(", "), body)
+            }
         }
     }
 }
@@ -30,6 +36,7 @@ impl Object {
             Object::Boolean(_) => "BOOLEAN",
             Object::Null => "NULL",
             Object::Return(_) => "RETURN",
+            Object::Function(_, _, _) => "FUNCTION",
         }
     }
 }
