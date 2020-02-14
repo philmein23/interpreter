@@ -5,19 +5,23 @@ use std::fmt;
 use std::rc::Rc;
 pub mod environment;
 pub type EvalResult = Result<Object, EvalError>;
+pub type BuiltInFn = fn(Vec<Object>) -> EvalResult;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Object {
     Integer(i64),
     Boolean(bool),
+    StringLiteral(String),
     Null,
     Return(Box<Object>),
     Function(Vec<String>, BlockStatement, Rc<RefCell<Environment>>),
+    BuiltIn(BuiltInFn),
 }
 
 impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Object::StringLiteral(value) => write!(f, "\"{}\"", value),
             Object::Integer(value) => write!(f, "{}", value),
             Object::Boolean(value) => write!(f, "{}", value),
             Object::Null => write!(f, "null"),
@@ -25,6 +29,7 @@ impl fmt::Display for Object {
             Object::Function(params, body, env) => {
                 write!(f, "fn({}) {{\n{}\n}}", params.join(", "), body)
             }
+            Object::BuiltIn(built_in_fn) => write!(f, "{:?}", built_in_fn),
         }
     }
 }
@@ -32,11 +37,13 @@ impl fmt::Display for Object {
 impl Object {
     pub fn type_name(&self) -> &str {
         match self {
+            Object::StringLiteral(_) => "STRING",
             Object::Integer(_) => "INTEGER",
             Object::Boolean(_) => "BOOLEAN",
             Object::Null => "NULL",
             Object::Return(_) => "RETURN",
             Object::Function(_, _, _) => "FUNCTION",
+            Object::BuiltIn(_) => "BUILTIN",
         }
     }
 }
