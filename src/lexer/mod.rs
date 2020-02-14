@@ -60,6 +60,17 @@ impl Lexer {
         }
     }
 
+    pub fn read_string(&mut self) -> &str {
+        let position = self.position + 1;
+        loop {
+            self.read_char();
+            if self.ch == '"' || self.ch == '\u{0}' {
+                break;
+            }
+        }
+        &self.input[position..self.position]
+    }
+
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         let token = match self.ch {
@@ -101,6 +112,10 @@ impl Lexer {
             '>' => Token::GT,
 
             '<' => Token::LT,
+            '"' => {
+                let val = self.read_string();
+                Token::STRING(val.to_string())
+            }
             _ => {
                 if is_letter(self.ch) {
                     let literal = self.read_identifier();
@@ -157,7 +172,7 @@ mod tests {
     #[test]
     fn test_next_token_2() {
         let input = String::from(
-            "let five = 5;
+            r#"let five = 5;
         let ten = 10;
 
         let add = fn(x,y) {
@@ -174,7 +189,10 @@ mod tests {
             return false;
         }
         10 == 10;
-        10 != 9;",
+        10 != 9;
+        "foobar"
+        "foo bar" 
+        "#,
         );
 
         let expected = vec![
@@ -251,6 +269,8 @@ mod tests {
             Token::NOT_EQ,
             Token::INT("9".to_string()),
             Token::SEMICOLON,
+            Token::STRING("foobar".to_string()),
+            Token::STRING("foo bar".to_string()),
             Token::EOF,
         ];
 

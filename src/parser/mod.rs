@@ -159,6 +159,7 @@ impl Parser {
             Token::IDENT(_) => Some(Parser::parse_identifier),
             Token::INT(_) => Some(Parser::parse_integer_literal),
             Token::BANG => Some(Parser::parse_prefix_expression),
+            Token::STRING(_) => Some(Parser::parse_string_literal),
             Token::MINUS => Some(Parser::parse_prefix_expression),
             Token::TRUE => Some(Parser::parse_boolean),
             Token::FALSE => Some(Parser::parse_boolean),
@@ -351,6 +352,14 @@ impl Parser {
         }
 
         Ok(ast::BlockStatement { statements })
+    }
+
+    fn parse_string_literal(&mut self) -> Result<Expression, &'static str> {
+        if let Token::STRING(literal) = &self.current_token {
+            return Ok(Expression::StringLiteral(literal.to_string()));
+        } else {
+            return Err("No string literal found");
+        }
     }
 
     fn parse_infix_expressions(&mut self, left: Expression) -> Result<Expression, &'static str> {
@@ -710,6 +719,16 @@ mod tests {
         test_parsing(input);
     }
 
+    #[test]
+    fn test_string_literals() {
+        let input = vec![
+            ("\"hello world\"", "\"hello world\";"),
+            ("let s = \"hello world\"", "let s = \"hello world\";"),
+        ];
+
+        test_parsing(input);
+    }
+
     fn test_parsing(tests: Vec<(&str, &str)>) {
         for (input, expected) in tests {
             let mut lexer = Lexer::new(input.to_string());
@@ -717,8 +736,6 @@ mod tests {
 
             let program = parser.parse_program();
             check_parse_errors(parser);
-
-            println!("HERE: {:?}", program.to_string());
 
             assert_eq!(program.to_string(), expected);
         }

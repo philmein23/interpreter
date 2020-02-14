@@ -40,6 +40,7 @@ fn eval_statement(statement: &Statement, env: Rc<RefCell<Environment>>) -> EvalR
 
 fn eval_expression(expression: &Expression, env: Rc<RefCell<Environment>>) -> EvalResult {
     match expression {
+        Expression::StringLiteral(value) => Ok(Object::StringLiteral(value.to_string())),
         Expression::IntegerLiteral(value) => Ok(Object::Integer(*value)),
         Expression::Boolean(value) => Ok(Object::Boolean(*value)),
         Expression::Prefix(prefix, operand) => eval_prefix_expression(prefix, operand, env),
@@ -186,6 +187,15 @@ fn eval_infix_expression(
         }
         (Object::Boolean(left), Object::Boolean(right)) => {
             eval_boolean_infix_expression(infix, left, right)
+        }
+        (Object::StringLiteral(left), Object::StringLiteral(right)) => {
+            if infix.clone() == Infix::PLUS {
+                Ok(Object::StringLiteral(format!("{}{}", left, right)))
+            } else {
+                return Err(EvalError::General(
+                    "Infix operator must be a PLUS".to_string(),
+                ));
+            }
         }
         (left, right) => Err(EvalError::TypeMismatch(infix.clone(), left, right)),
     }
@@ -383,6 +393,33 @@ mod tests {
             ),
             ("fn(x) { x; }(5);", "5"),
             ("fn(x) { x; }(1); 5;", "5"),
+        ]);
+    }
+
+    #[test]
+    fn closure() {
+        expect_values(vec![(
+            "let newAdder = fn(x) { fn(y) { x + y } }; let addTwo = newAdder(2); addTwo(3);",
+            "5",
+        )]);
+    }
+
+    #[test]
+    fn test_string_literal() {
+        expect_values(vec![
+            (r#""Hello, World!""#, r#""Hello, World!""#),
+            (r#""hello" + " " + "world""#, r#""hello world""#),
+        ]);
+    }
+
+    #[test]
+    fn built_in_functions() {
+        expect_values(vec![
+            (r#"len("")"#, "0"),
+            (r#"len("four")"#, "4"),
+            (r#"len("hello world")"#, "11"),
+            ("len([1, 2, 3])", "3"),
+            ("len([])", "0"),
         ]);
     }
 
