@@ -12,6 +12,7 @@ pub enum Precedence {
     Product,     // *
     Prefix,      // -X or !X
     Call,        // myFunction(X)
+    Index,       // []
 }
 
 type PrefixParseFn = fn(&mut Parser) -> Result<Expression, &'static str>;
@@ -156,6 +157,7 @@ impl Parser {
 
     fn parse_prefix_fn(&self) -> Option<PrefixParseFn> {
         match self.current_token {
+            Token::LBRACKET => Some(Parser::parse_array_literal),
             Token::IDENT(_) => Some(Parser::parse_identifier),
             Token::INT(_) => Some(Parser::parse_integer_literal),
             Token::BANG => Some(Parser::parse_prefix_expression),
@@ -181,8 +183,63 @@ impl Parser {
             Token::LT => Some(Parser::parse_infix_expressions),
             Token::GT => Some(Parser::parse_infix_expressions),
             Token::LPAREN => Some(Parser::parse_call_expression),
+            Token::LBRACKET => Some(Parser::parse_index_expression),
             _ => None,
         }
+    }
+
+    fn parse_array_literal(&mut self) -> Result<Expression, &'static str> {
+        let expression_list = self.parse_expression_list()?;
+
+        Ok(Expression::Array(expression_list))
+    }
+
+    fn parse_expression_list(&mut self) -> Result<Vec<Expression>, &'static str> {
+        let mut expression_list = vec![];
+
+        if self.expectPeek(Token::RBRACKET) {
+            self.next_token();
+            // current_token: RBRACKET
+            return Ok(expression_list);
+        }
+
+        self.next_token();
+        // current_token: first token of expression of within array
+        expression_list.push(self.parse_expression(Precedence::Lowest)?);
+
+        while self.expectPeek(Token::COMMA) {
+            self.next_token();
+            // current_token: COMMA
+
+            self.next_token();
+            // current_token: expression value
+
+            expression_list.push(self.parse_expression(Precedence::Lowest)?);
+        }
+
+        if self.expectPeek(Token::RBRACKET) {
+            self.next_token()
+        // current_token: Token::RBRACKET
+        } else {
+            return Err("expecting right bracket");
+        }
+
+        Ok(expression_list)
+    }
+
+    fn parse_index_expression(&mut self, left: Expression) -> Result<Expression, &'static str> {
+        self.next_token();
+        // curren_token: expression after left bracket
+
+        let index = self.parse_expression(Precedence::Lowest)?;
+        if self.expectPeek(Token::RBRACKET) {
+            self.next_token();
+        // current_token: Token::RBRACKET
+        } else {
+            return Err("expecting right bracket");
+        }
+
+        Ok(Expression::Index(Box::new(left), Box::new(index)))
     }
 
     fn parse_call_expression(&mut self, left: Expression) -> Result<Expression, &'static str> {
@@ -471,6 +528,7 @@ impl Parser {
             Token::SLASH => (Precedence::Product, Some(Infix::SLASH)),
             Token::ASTERISK => (Precedence::Product, Some(Infix::ASTERISK)),
             Token::LPAREN => (Precedence::Call, None),
+            Token::LBRACKET => (Precedence::Index, None),
             _ => (Precedence::Lowest, None),
         }
     }
@@ -714,6 +772,19 @@ mod tests {
                 "fn(x, y, z) { return ((x + y) + z); };",
             ),
             ("add(1, 2 * 3, 4 + 5)", "add(1, (2 * 3), (4 + 5));"),
+        ];
+
+        test_parsing(input);
+    }
+
+    #[test]
+    fn test_array_expression() {
+        let input = vec![
+            ("[1, 2, 3, 4, 5]", "[1, 2, 3, 4, 5];"),
+            (
+                "a * [1, 2, 3, 4][b * c] * d",
+                "((a * ([1, 2, 3, 4][(b * c)])) * d);",
+            ),
         ];
 
         test_parsing(input);
