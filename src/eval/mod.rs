@@ -62,9 +62,28 @@ fn eval_expression(expression: &Expression, env: Rc<RefCell<Environment>>) -> Ev
             let elements = eval_expressions(elems, env)?;
             Ok(Object::Array(elements))
         }
+        Expression::Index(left, index) => {
+            let left = eval_expression(left, Rc::clone(&env))?;
+            let index = eval_expression(index, env)?;
+
+            eval_index_expression(left, index)
+        }
 
         _ => Err(EvalError::General("No existence of expression".to_string())),
     }
+}
+
+fn eval_index_expression(left: Object, index: Object) -> EvalResult {
+    match (left, index) {
+        (Object::Array(left), Object::Integer(index)) => eval_array_index_expression(left, index),
+        (l, i) => Err(EvalError::UnknownIndexOperator(l, i)),
+    }
+}
+
+fn eval_array_index_expression(left: Vec<Object>, index: i64) -> EvalResult {
+    let indexed_value = left.get(index as usize).unwrap_or_else(|| &Object::Null);
+
+    Ok(indexed_value.clone())
 }
 
 fn apply_function(func: Object, args: Vec<Object>) -> EvalResult {
@@ -429,6 +448,28 @@ mod tests {
     #[test]
     fn array_literal() {
         expect_values(vec![("[1, 2 * 3, 4 + (5 - 6)]", "[1, 6, 3]")]);
+    }
+
+    #[test]
+    fn array_index_expression() {
+        expect_values(vec![
+            ("[1, 2, 3][0]", "1"),
+            ("[1, 2, 3][1]", "2"),
+            ("[1, 2, 3][2]", "3"),
+            ("let i = 0; [1][i];", "1"),
+            ("[1, 2, 3][1 + 1];", "3"),
+            ("let myArray = [1, 2, 3]; myArray[2];", "3"),
+            (
+                "let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];",
+                "6",
+            ),
+            (
+                "let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i]",
+                "2",
+            ),
+            ("[1, 2, 3][3]", "null"),
+            ("[1, 2, 3][-1]", "null"),
+        ]);
     }
 
     #[test]
