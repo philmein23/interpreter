@@ -3,6 +3,7 @@ use crate::object::environment::Environment;
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
+pub mod builtins;
 pub mod environment;
 pub type EvalResult = Result<Object, EvalError>;
 pub type BuiltInFn = fn(Vec<Object>) -> EvalResult;
