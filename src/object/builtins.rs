@@ -1,6 +1,6 @@
 use crate::object::{EvalError, EvalResult, Object};
 
-pub enum BuiltIn {}
+pub struct BuiltIn;
 
 impl BuiltIn {
     pub fn lookup(name: &str) -> EvalResult {

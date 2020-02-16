@@ -21,6 +21,7 @@ impl fmt::Display for Statement {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
+    Array(Vec<Expression>),
     IntegerLiteral(i64),
     StringLiteral(String),
     Identifier(String),
@@ -30,11 +31,13 @@ pub enum Expression {
     If(Box<Expression>, BlockStatement, Option<BlockStatement>),
     FunctionLiteral(Vec<String>, BlockStatement),
     Call(Box<Expression>, Box<Vec<Expression>>),
+    Index(Box<Expression>, Box<Expression>),
 }
 
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Expression::Array(exp) => write!(f, "[{}]", comma_separated(exp)),
             Expression::StringLiteral(literal) => write!(f, "\"{}\"", literal),
             Expression::Identifier(ident) => write!(f, "{}", ident),
             Expression::IntegerLiteral(int) => write!(f, "{}", int),
@@ -52,6 +55,7 @@ impl fmt::Display for Expression {
                 write!(f, "fn({}) {}", params.join(", "), body)
             }
             Expression::Call(exp, args) => write!(f, "{}({})", exp, comma_separated(args)),
+            Expression::Index(left, index) => write!(f, "({}[{}])", left, index),
         }
     }
 }

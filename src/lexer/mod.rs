@@ -96,7 +96,12 @@ impl Lexer {
 
             '}' => Token::RBRACE,
 
+            '[' => Token::LBRACKET,
+
+            ']' => Token::RBRACKET,
+
             '-' => Token::MINUS,
+
             '!' => {
                 if self.peek_char() == '=' {
                     self.read_char();
@@ -192,6 +197,7 @@ mod tests {
         10 != 9;
         "foobar"
         "foo bar" 
+        [1, 2];
         "#,
         );
 
@@ -271,6 +277,12 @@ mod tests {
             Token::SEMICOLON,
             Token::STRING("foobar".to_string()),
             Token::STRING("foo bar".to_string()),
+            Token::LBRACKET,
+            Token::INT("1".to_string()),
+            Token::COMMA,
+            Token::INT("2".to_string()),
+            Token::RBRACKET,
+            Token::SEMICOLON,
             Token::EOF,
         ];
 
