@@ -58,19 +58,16 @@ fn eval_expression(expression: &Expression, env: Rc<RefCell<Environment>>) -> Ev
             let arguments = eval_expressions(args, env)?;
             apply_function(func, arguments)
         }
+        Expression::Array(elems) => {
+            let elements = eval_expressions(elems, env)?;
+            Ok(Object::Array(elements))
+        }
+
         _ => Err(EvalError::General("No existence of expression".to_string())),
     }
 }
 
 fn apply_function(func: Object, args: Vec<Object>) -> EvalResult {
-    // if let Object::Function(params, body, env) = func {
-    //     let extended_env = extend_function_env(params, args, env);
-    //     let evaluated = eval_block_statement(&body, extended_env)?;
-    //     unwrap_return_values(evaluated)
-    // } else {
-    //     return Err(EvalError::General("Not a function".to_string()));
-    // }
-
     match func {
         Object::Function(params, body, env) => {
             let extended_env = extend_function_env(params, args, env);
@@ -427,6 +424,11 @@ mod tests {
             (r#""Hello, World!""#, r#""Hello, World!""#),
             (r#""hello" + " " + "world""#, r#""hello world""#),
         ]);
+    }
+
+    #[test]
+    fn array_literal() {
+        expect_values(vec![("[1, 2 * 3, 4 + (5 - 6)]", "[1, 6, 3]")]);
     }
 
     #[test]
