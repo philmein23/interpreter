@@ -12,6 +12,7 @@ pub enum Token {
     ASTERISK,
     SLASH,
     COMMA,
+    COLON,
     SEMICOLON,
     LT,
     GT,

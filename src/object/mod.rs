@@ -1,8 +1,10 @@
 use crate::ast::{self, BlockStatement, Expression, Infix, Prefix, Statement};
 use crate::object::environment::Environment;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
+
 pub mod builtins;
 pub mod environment;
 pub type EvalResult = Result<Object, EvalError>;
@@ -18,6 +20,7 @@ pub enum Object {
     Function(Vec<String>, BlockStatement, Rc<RefCell<Environment>>),
     BuiltIn(BuiltInFn),
     Array(Vec<Object>),
+    Hash(HashMap<HashKey, Object>),
 }
 
 impl fmt::Display for Object {
@@ -41,6 +44,15 @@ impl fmt::Display for Object {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
+            Object::Hash(hash_map) => {
+                let mut pairs = hash_map
+                    .iter()
+                    .map(|(key, value)| format!("{}: {}", key, value))
+                    .collect::<Vec<String>>();
+                pairs.sort();
+
+                write!(f, "{{{}}}", pairs.join(", "))
+            }
         }
     }
 }
@@ -56,6 +68,35 @@ impl Object {
             Object::Function(_, _, _) => "FUNCTION",
             Object::BuiltIn(_) => "BUILTIN",
             Object::Array(_) => "ARRAY",
+            Object::Hash(_) => "HASH",
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub enum HashKey {
+    Boolean(bool),
+    StringLiteral(String),
+    Integer(i64),
+}
+
+impl fmt::Display for HashKey {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            HashKey::Boolean(val) => write!(f, "{}", val),
+            HashKey::StringLiteral(val) => write!(f, "\"{}\"", val),
+            HashKey::Integer(val) => write!(f, "{}", val),
+        }
+    }
+}
+
+impl HashKey {
+    pub fn from_object(obj: Object) -> Result<HashKey, EvalError> {
+        match obj {
+            Object::Boolean(val) => Ok(HashKey::Boolean(val)),
+            Object::StringLiteral(val) => Ok(HashKey::StringLiteral(val)),
+            Object::Integer(val) => Ok(HashKey::Integer(val)),
+            _ => Err(EvalError::UnsupportedHashKey(obj.clone())),
         }
     }
 }

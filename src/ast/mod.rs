@@ -32,6 +32,7 @@ pub enum Expression {
     FunctionLiteral(Vec<String>, BlockStatement),
     Call(Box<Expression>, Box<Vec<Expression>>),
     Index(Box<Expression>, Box<Expression>),
+    Hash(Vec<(Expression, Expression)>),
 }
 
 impl fmt::Display for Expression {
@@ -56,6 +57,15 @@ impl fmt::Display for Expression {
             }
             Expression::Call(exp, args) => write!(f, "{}({})", exp, comma_separated(args)),
             Expression::Index(left, index) => write!(f, "({}[{}])", left, index),
+            Expression::Hash(pairs) => {
+                let parsed_pairs = pairs
+                    .iter()
+                    .map(|(key, value)| format!("{}: {}", key, value))
+                    .collect::<Vec<String>>()
+                    .join(", ");
+
+                write!(f, "{{{}}}", parsed_pairs)
+            }
         }
     }
 }

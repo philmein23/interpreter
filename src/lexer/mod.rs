@@ -86,6 +86,8 @@ impl Lexer {
 
             ',' => Token::COMMA,
 
+            ':' => Token::COLON,
+
             ';' => Token::SEMICOLON,
 
             '(' => Token::LPAREN,
@@ -198,6 +200,7 @@ mod tests {
         "foobar"
         "foo bar" 
         [1, 2];
+        { "foo": "bar" }
         "#,
         );
 
@@ -283,6 +286,11 @@ mod tests {
             Token::INT("2".to_string()),
             Token::RBRACKET,
             Token::SEMICOLON,
+            Token::LBRACE,
+            Token::STRING("foo".to_string()),
+            Token::COLON,
+            Token::STRING("bar".to_string()),
+            Token::RBRACE,
             Token::EOF,
         ];
 

@@ -157,6 +157,7 @@ impl Parser {
 
     fn parse_prefix_fn(&self) -> Option<PrefixParseFn> {
         match self.current_token {
+            Token::LBRACE => Some(Parser::parse_hash_literal),
             Token::LBRACKET => Some(Parser::parse_array_literal),
             Token::IDENT(_) => Some(Parser::parse_identifier),
             Token::INT(_) => Some(Parser::parse_integer_literal),
@@ -186,6 +187,43 @@ impl Parser {
             Token::LBRACKET => Some(Parser::parse_index_expression),
             _ => None,
         }
+    }
+
+    fn parse_hash_literal(&mut self) -> Result<Expression, &'static str> {
+        let mut pairs = vec![];
+
+        while !self.expectPeek(Token::RBRACE) {
+            self.next_token();
+            // current_token: Key - expression (Token::STRING)
+            let key = self.parse_expression(Precedence::Lowest)?;
+
+            if self.expectPeek(Token::COLON) {
+                self.next_token();
+            // current_token: Token::COLON
+            } else {
+                return Err("Missing colon in hash");
+            }
+
+            self.next_token();
+            // current_token:  Value - expression (Token::STRING)
+            let value = self.parse_expression(Precedence::Lowest)?;
+
+            pairs.push((key, value));
+
+            if self.expectPeek(Token::COMMA) {
+                self.next_token();
+                // current_token: Token::COMMA
+            }
+        }
+
+        if self.expectPeek(Token::RBRACE) {
+            self.next_token();
+        //current_token: Token::RBRACE
+        } else {
+            return Err("No right brace in hash");
+        }
+
+        Ok(Expression::Hash(pairs))
     }
 
     fn parse_array_literal(&mut self) -> Result<Expression, &'static str> {
@@ -798,6 +836,24 @@ mod tests {
         ];
 
         test_parsing(input);
+    }
+
+    #[test]
+    fn hash() {
+        test_parsing(vec![
+            ("{}", "{};"),
+            ("{1: 2, 2: 3}", "{1: 2, 2: 3};"),
+            ("{true: 3}", "{true: 3};"),
+            (
+                r#"{"one": 1, "two": 2, "three": 3}"#,
+                r#"{"one": 1, "two": 2, "three": 3};"#,
+            ),
+            // Duplicated entries
+            (
+                r#"{"one": 1, "one": 1, "two": 2}"#,
+                r#"{"one": 1, "one": 1, "two": 2};"#,
+            ),
+        ]);
     }
 
     fn test_parsing(tests: Vec<(&str, &str)>) {
