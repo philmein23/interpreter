@@ -1,8 +1,9 @@
 use crate::ast::{BlockStatement, Expression, Infix, Prefix, Program, Statement};
 use crate::object::builtins::BuiltIn;
 use crate::object::environment::Environment;
-use crate::object::{EvalError, EvalResult, Object};
+use crate::object::{EvalError, EvalResult, HashKey, Object};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn eval(program: &Program, env: Rc<RefCell<Environment>>) -> EvalResult {
@@ -68,16 +69,42 @@ fn eval_expression(expression: &Expression, env: Rc<RefCell<Environment>>) -> Ev
 
             eval_index_expression(left, index)
         }
+        Expression::Hash(pairs) => eval_hash_literal(pairs, env),
 
         _ => Err(EvalError::General("No existence of expression".to_string())),
     }
 }
 
+fn eval_hash_literal(
+    pairs: &Vec<(Expression, Expression)>,
+    env: Rc<RefCell<Environment>>,
+) -> EvalResult {
+    let mut hash_map = HashMap::new();
+
+    for (key, value) in pairs.iter() {
+        let key = eval_expression(key, Rc::clone(&env))?;
+        let val = eval_expression(value, Rc::clone(&env))?;
+        let hash_key = HashKey::from_object(key)?;
+
+        hash_map.insert(hash_key, val);
+    }
+
+    Ok(Object::Hash(hash_map))
+}
+
 fn eval_index_expression(left: Object, index: Object) -> EvalResult {
     match (left, index) {
         (Object::Array(left), Object::Integer(index)) => eval_array_index_expression(left, index),
+        (Object::Hash(hash_map), i) => eval_hash_index_expression(hash_map, i),
         (l, i) => Err(EvalError::UnknownIndexOperator(l, i)),
     }
+}
+
+fn eval_hash_index_expression(left: HashMap<HashKey, Object>, index: Object) -> EvalResult {
+    let hash_key = HashKey::from_object(index)?;
+    let obj = left.get(&hash_key).cloned().unwrap_or_else(|| Object::Null);
+
+    Ok(obj)
 }
 
 fn eval_array_index_expression(left: Vec<Object>, index: i64) -> EvalResult {
@@ -493,6 +520,24 @@ mod tests {
             ("push(push(push([], 1), 2), 3)", "[1, 2, 3]"),
             ("push([], 1)", "[1]"),
         ]);
+    }
+
+    #[test]
+    fn hash() {
+        expect_values(vec![
+            (r#"{"foo": 123, "bar": 234}"#, r#"{"bar": 234, "foo": 123}"#),
+            (r#"{"foo": 123, "bar": 234}["baz"]"#, "null"),
+            (r#"{"foo": 123, "bar": 234}["foo"]"#, "123"),
+            (r#"{1: 123, 2: 234}[2]"#, "234"),
+            (r#"{true: 3 * 4, false: 2 * 8}[true]"#, "12"),
+            (r#"{true: 3 * 4, false: 2 * 8}[false]"#, "16"),
+            (r#"{"thr" + "ee": 6 / 2, 1: 1}["th" + "ree"]"#, "3"),
+            (r#"let key = "foo"; {"foo": 5}[key]"#, "5"),
+        ]);
+        expect_errors(vec![(
+            "{12: 234}[fn(x) { x }];",
+            "unusable as hash key: FUNCTION",
+        )]);
     }
 
     fn expect_values(tests: Vec<(&str, &str)>) {
